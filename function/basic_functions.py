@@ -70,27 +70,27 @@ def ref_aguj_toma_ok(values):
 
 
 # La funcion toma el listado de archivos de calibracion y los organiza de menor a mayor en funcion de alfa y beta
-def sort_files_calib(calibr_files_in):
-    # Se extrae del nombre del archivo de calibracion los valores de alfa y beta.
-    alfa_buffer = []
-    beta_buffer = []
+def sort_files_travers(travers_files_in):
+    # Se extrae del nombre de los archivo del traverser los valores de X e Y.
+    x_buffer = []
+    y_buffer = []
     list_buffer = []
-    for i in range(len(calibr_files_in)):
+    for i in range(len(travers_files_in)):
         # Se usa el caracter "_" para dividir el nombre del archivo.
-        buffer = calibr_files_in[i].split('_')
-        alfa_buffer.append(int(buffer[2]))
-        beta_buffer.append(int(buffer[4]))
+        buffer = travers_files_in[i].split('_')
+        x_buffer.append(int(buffer[3]))
+        y_buffer.append(int(buffer[5]))
         list_buffer.append(int(i))
-    # Usando las funciones SORTED y ZIP se organiza de menor a mayor alfa y beta al mismo tiempo.
+    # Usando las funciones SORTED y ZIP se organiza de menor a mayor X e Y al mismo tiempo.
     # Se usa la variable "ist" para determinar el orden nuevo del listado de archivos de calibracion.
     # Web eplicativa: https://es.stackoverflow.com/questions/443252/c%C3%B3mo-ordenar-dos-listas-al-mismo-tiempo-en-python
     file_list = []
-    for alfa_buffer, beta_buffer, list_buffer in sorted(zip(alfa_buffer, beta_buffer, list_buffer)):
+    for x_buffer, y_buffer, list_buffer in sorted(zip(x_buffer, y_buffer, list_buffer)):
         file_list.append(list_buffer)
-    # Usando la variables "list" se organiza la lista de archivos de calibracion de menor a mayor.
+    # Usando la variables "list" se organiza la lista de archivos del traverser de menor a mayor.
     calibr_files_out = []
-    for i in range(len(calibr_files_in)):
-        calibr_files_out.append(calibr_files_in[file_list[i]])
+    for i in range(len(travers_files_in)):
+        calibr_files_out.append(travers_files_in[file_list[i]])
     return calibr_files_out
 
 

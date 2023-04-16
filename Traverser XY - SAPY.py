@@ -341,6 +341,72 @@ while True:
                 window['-TYPEPROBE-'].update('{}'.format(probe_type))
                 window['-MULTIZONE-'].update('{}'.format(sect_calc))
 
+    # Evento de seleccion de carpeta de trabajo
+    if event == '-FOLDER-':
+        # Guardado de la ubicacion de la carpeta de trabajo del traverser
+        path_folder = values['-FOLDER-']
+        # Se busca si la carpeta existe sino devuelve un listado vacio y actualiza la barra de estatus.
+        try:
+            file_list = os.listdir(path_folder)
+        except Exception as e:
+            print(e)
+            file_list = []
+            window['-STATUS-'].update('No hay archivos del traverser')
+        # Busca en la carpeta de trabajo los archivos que sean solo CSV.
+        fnames = [f for f in file_list if os.path.isfile(os.path.join(path_folder, f)) and f.lower().endswith(".csv")]
+        # Elimina del analisis los archivos de salida.
+        if "presiones.csv" in fnames:
+            fnames.remove("presiones.csv")
+        if "incertidumbre.csv" in file_list:
+            fnames.remove("incertidumbre.csv")
+        if "traverser-velocidades.csv" in file_list:
+            fnames.remove("calibracion.csv")
+        # Clasificacion de los archivos CSV en los del traverser y cero
+        traverser_files = []
+        zero_files = []
+        for clasif_names in fnames:
+            if "XY_SapySync_X" in clasif_names:
+                traverser_files.append(clasif_names)
+            else:
+                zero_files.append(clasif_names)
+        # Se realiza la actualizacion del layout dependiendo de si se encontraron archivos de calibracion o no
+        if not traverser_files:
+            # Como no hay archivos del traverser se desactivan los botones de configuracion de sonda y se eliminan
+            # los valores de las listas de tomas de los COMBO en la sección "relación Agujero: Toma de presion".
+            window['-STATUS-'].update('No hay archivos de calibracion')
+            window['-CARGCONF-'].update(disabled=True)
+            window['-GUARDCONF-'].update(disabled=True)
+            window['-NUM1-'].update(values=[])
+            window['-NUM2-'].update(values=[])
+            window['-NUM3-'].update(values=[])
+            window['-NUM4-'].update(values=[])
+            window['-NUM5-'].update(values=[])
+            window['-NUM6-'].update(values=[])
+            window['-NUM7-'].update(values=[])
+        else:
+            # Se organiza los archivos de menor a mayor en funcion del X y el Y. Se recurre a una funcion.
+            traverser_files = sort_files_travers(traverser_files)
+            numb_files_travers = len(traverser_files)
+            window['-STATUS-'].update('Se encontraron {} archivos del traverser'.format(numb_files_travers))
+            # Se analiza las tomas que se usaron tomando un archivo del traverser al azar. Se actualizan los listados
+            # de la seccion "Agujeros: Toma de Presion"
+            num_tomas_list = list_tomas(os.path.join(path_folder, random.choice(traverser_files)))
+            window['-CARGCONF-'].update(disabled=False)
+            window['-GUARDCONF-'].update(disabled=False)
+            window['-NUM1-'].update(values=num_tomas_list)
+            window['-NUM2-'].update(values=num_tomas_list)
+            window['-NUM3-'].update(values=num_tomas_list)
+            window['-NUM4-'].update(values=num_tomas_list)
+            window['-NUM5-'].update(values=num_tomas_list)
+            window['-NUM6-'].update(values=num_tomas_list)
+            window['-NUM7-'].update(values=num_tomas_list)
+        # Se realiza la actualizacion del layout dependiendo de si se encontraron CSV's para el autozero.
+        if not zero_files:
+            window['-CERO-'].update(values=[])
+            window['-CERO-'].update(value='No hay archivos CSV')
+        else:
+            window['-CERO-'].update(values=zero_files)
+
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:
         break

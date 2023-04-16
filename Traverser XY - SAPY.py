@@ -272,6 +272,75 @@ while True:
                 window['-NUM6-'].update(disabled=True, value=[])
                 window['-NUM7-'].update(disabled=True, value=[])
                 error_popup('El archivo de calibracion no es procesable')
+
+            # Actualiza la imagen del numero de agujeros junto con sus referencias.
+            # Deshabilita o habilita los COMBO dependiendo del tipo de sonda elegida y se reemplaza el valor
+            # que tenia previamente por uno nulo [] cuando se deshabilita.
+            if probe_type == '2 agujeros':
+                window['-IMAGENSONDA-'].update(source=dos_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 2 agujeros'
+                window['-NUM1-'].update(disabled=False)
+                window['-NUM2-'].update(disabled=False)
+                window['-NUM3-'].update(disabled=True, value=[])
+                window['-NUM4-'].update(disabled=True, value=[])
+                window['-NUM5-'].update(disabled=True, value=[])
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                window['-MINALPHA-'].update('{}'.format(min(angle)))
+                window['-MAXALPHA-'].update('{}'.format(max(angle)))
+                window['-MINBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                window['-MULTIZONE-'].update('{}'.format(sect_calc))
+            elif probe_type == '3 agujeros':
+                window['-IMAGENSONDA-'].update(source=tres_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 3 agujeros'
+                window['-NUM1-'].update(disabled=False)
+                window['-NUM2-'].update(disabled=False)
+                window['-NUM3-'].update(disabled=False)
+                window['-NUM4-'].update(disabled=True, value=[])
+                window['-NUM5-'].update(disabled=True, value=[])
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                window['-MINALPHA-'].update('{}'.format(min(angle)))
+                window['-MAXALPHA-'].update('{}'.format(max(angle)))
+                window['-MINBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                window['-MULTIZONE-'].update('{}'.format(sect_calc))
+            elif probe_type == '5 agujeros':
+                window['-IMAGENSONDA-'].update(source=cinco_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 5 agujeros'
+                window['-NUM1-'].update(disabled=False)
+                window['-NUM2-'].update(disabled=False)
+                window['-NUM3-'].update(disabled=False)
+                window['-NUM4-'].update(disabled=False)
+                window['-NUM5-'].update(disabled=False)
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                window['-MINALPHA-'].update('{}'.format(min(alpha)))
+                window['-MAXALPHA-'].update('{}'.format(max(alpha)))
+                window['-MINBETA-'].update('{}'.format(min(beta)))
+                window['-MAXBETA-'].update('{}'.format(max(beta)))
+                window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                window['-MULTIZONE-'].update('{}'.format(sect_calc))
+            elif probe_type == '7 agujeros':
+                window['-IMAGENSONDA-'].update(source=siete_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 7 agujeros'
+                window['-NUM1-'].update(disabled=False)
+                window['-NUM2-'].update(disabled=False)
+                window['-NUM3-'].update(disabled=False)
+                window['-NUM4-'].update(disabled=False)
+                window['-NUM5-'].update(disabled=False)
+                window['-NUM6-'].update(disabled=False)
+                window['-NUM7-'].update(disabled=False)
+                window['-MINALPHA-'].update('{}'.format(min(alpha)))
+                window['-MAXALPHA-'].update('{}'.format(max(alpha)))
+                window['-MINBETA-'].update('{}'.format(min(beta)))
+                window['-MAXBETA-'].update('{}'.format(max(beta)))
+                window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                window['-MULTIZONE-'].update('{}'.format(sect_calc))
+
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:
         break

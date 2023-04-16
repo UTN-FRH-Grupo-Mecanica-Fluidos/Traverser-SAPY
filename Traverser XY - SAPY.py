@@ -62,11 +62,14 @@ frame_format_CSV = [
     sg.Frame('Formato de salida del CSV', format_CSV, vertical_alignment='center', expand_y=True, expand_x=True,
              pad=(0, (4, 4)))]
 
-# Logo, boton procesar y salir
+# Logo, nivel de confianza, boton procesar y salir
 col_b1 = [[sg.Image(source=logo, subsample=3, tooltip='Laboratorio de Aerodinamica y Fluidos')]]
-col_b2 = [
-    [sg.Button('Procesar', key='-PROCESS-', enable_events=True, font=("Arial", 11), size=(9, 1), pad=(10, (10, 5))),
-        sg.Button('Salir', font=("Arial", 11), size=(9, 1), pad=(10, (10, 5))), sg.Push()]]
+col_b2 = [[sg.Text('Nivel de confianza:'),
+           sg.Combo(values=['68%', '95%', '99%'], key='-NIVCONF-', default_value=['95%'], s=(5, 1), readonly=True,
+                    background_color='white')], [
+              sg.Button('Procesar', key='-PROCESS-', enable_events=True, font=("Arial", 11), size=(9, 1),
+                        pad=(10, (10, 5))), sg.Button('Salir', font=("Arial", 11), size=(9, 1), pad=(10, (10, 5))),
+              sg.Push()]]
 last_row = [sg.Column(col_b1, vertical_alignment='middle'), sg.Column(col_b2, vertical_alignment='center')]
 
 # Columna Izquierda Final
@@ -74,7 +77,7 @@ col_izq = [arch_calib_frame, frame_traverser, frame_autozero, frame_format_CSV, 
 
 # -----------------------------------Columna Derecha-----------------------------------
 # Imagen Agujeros - Carga de configuracion de sonda
-col_c1 = [[sg.Image(source=sin_agujeros, subsample=3, tooltip='Seleccione el tipo de sonda', key='-IMAGENSONDA-')],
+col_c1 = [[sg.Image(source=sin_agujeros, subsample=3, tooltip='Sonda no definida', key='-IMAGENSONDA-')],
           [sg.Push(), sg.Text("Vista Frontal", justification='center', font=("Arial", 9, 'bold')), sg.Push()]]
 col_c2 = [[sg.Text("Configuracion", justification='center', font=("Arial", 14, 'underline'))], [
     sg.Button('Cargar', key='-CARGCONF-', enable_events=True, font=("Arial", 14), size=(7, 1), pad=((0, 0), (7, 7)),
@@ -84,9 +87,9 @@ col_c2 = [[sg.Text("Configuracion", justification='center', font=("Arial", 14, '
 conf_sonda = [sg.Push(), sg.Column(col_c1),
               sg.Column(col_c2, element_justification='center', vertical_alignment='middle'), sg.Push()]
 
-# Seleccion tipo de sonda
+# Informacion sobre el tipo de sonda
 tipo_sonda = [sg.Push(), sg.Text("Tipo de sonda:", justification='center', font=("Arial", 15)),
-              sg.Text('-', key='-NUMTOMAS-', size=(10, 1), enable_events=True, justification='c',
+              sg.Text('-', key='-TYPEPROBE-', size=(10, 1), enable_events=True, justification='c',
                       background_color='white', font=("Arial", 15), relief='groove'), sg.Push()]
 
 # Frame relacion Agujeros/Toma
@@ -96,11 +99,10 @@ col_d2 = [[combo_list('-NUM1-')], [combo_list('-NUM2-')], [combo_list('-NUM3-')]
 col_d3 = [[sg.Text("4:", justification='right')], [sg.Text("5:", justification='right')],
           [sg.Text("6:", justification='right')]]
 col_d4 = [[combo_list('-NUM4-')], [combo_list('-NUM5-')], [combo_list('-NUM6-')]]
-col_d5 = [[sg.Text("7:", justification='right')], [sg.Text("Ps:", justification='right')],
-          [sg.Text("Pt:", justification='right')]]
-col_d6 = [[combo_list('-NUM7-')], [combo_list('-NUMPS-')], [combo_list('-NUMPT-')]]
-agujero_toma = [
-    [sg.Column(col_d1), sg.Column(col_d2), sg.Column(col_d3), sg.Column(col_d4), sg.Column(col_d5), sg.Column(col_d6)]]
+col_d5 = [[sg.Text("7:", justification='right')]]
+col_d6 = [[combo_list('-NUM7-')]]
+agujero_toma = [[sg.Column(col_d1), sg.Column(col_d2), sg.Column(col_d3), sg.Column(col_d4),
+                 sg.Column(col_d5, vertical_alignment='top'), sg.Column(col_d6, vertical_alignment='top')]]
 agujero_toma_frame = [sg.Push(),
                       sg.Frame('Definir relacion Agujero: Toma de Presion', agujero_toma, vertical_alignment='center',
                                expand_y=True), sg.Push()]

@@ -407,6 +407,126 @@ while True:
         else:
             window['-CERO-'].update(values=zero_files)
 
+    # Evento de guardado de la configuracion de la sonda.
+    if event == '-GUARDCONF-':
+        # Determinacion de que los datos ingresados por layout no tengan tomas repetidas
+        # o no se hallan ingresado valores. Se utiliza una funcion.
+        flag, data_conf = ref_aguj_toma_ok(values, probe_type)
+        # Si esta correcto se prosigue con el guardado de un archivo de extension "*.conf"
+        if flag == 0:
+            save_file = sg.popup_get_file('Guardar archivo de configuracion',
+                                          file_types=(('Archivo de configuracion', '*.conf'),), no_window=True,
+                                          save_as=True, keep_on_top=True)  # Elegir el icono
+            # Verificar que se puede guardar el archivo. Evita el error por poner cancelar al guardar.
+            if save_file != '':
+                with open(save_file, "w", newline='') as f:
+                    save_file = csv.writer(f, delimiter=',')
+                    save_file.writerow(data_conf)
+
+    # Evento de carga de la configuracion de la sonda proveniente de un archivo *.conf
+    if event == '-CARGCONF-':
+        flag = 0  # Variable para determinar que es posible cargar la configuracion
+        # Seleccionar archivo de configuracion
+        load_file = sg.popup_get_file('Cargar archivo de configuracion',
+                                      file_types=(('Archivo de configuracion', '*.conf'),), no_window=True,
+                                      save_as=False, keep_on_top=True)  # Elegir el icono
+        # Verifica que se selecciono un archivo. Evita error por poner cancelar al cargar.
+        if load_file != '':
+            # Lectura del archivo de configuracion
+            with open(os.path.join(path_folder, load_file)) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=',')
+                # Extraigo todas las filas
+                data_row = []  # Incializacion variable donde se guardan los datos en bruto del CSV.
+                for csv_row in csv_reader:
+                    conf_carg = csv_row
+            # Analisis del archivo de configuracion. Si el tipo de sonda de la configuracion es diferente al
+            # del utilizado por el archivos de calibracion cargado, se advierte. Se cargan los valores
+            # en la seccion "Relacion Agujero: Toma de presion".
+            if not probe_type == conf_carg[0]:
+                error_popup(
+                    'El archivo de configuracion no coincide con el numero de tomas de la calibracion \n'
+                    'No olvidar cargar el archivo de calibracion previmamente')
+            # elif probe_type == '-':
+            #     error_popup('No se cargo aun el archivo de calibracion')
+            else:
+                if conf_carg[0] == '2 agujeros':
+                    # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
+                    # con el tipo de sonda
+                    if len(conf_carg) != 3:
+                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        flag = 1
+                    # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
+                    # en la calibracion
+                    for i in conf_carg[1:]:
+                        if i not in num_tomas_list:
+                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
+                                        'no utilizadas en la calibracion')
+                            flag = 1
+                    if flag == 0:
+                        # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
+                        window['-NUM1-'].update(value=conf_carg[1])
+                        window['-NUM2-'].update(value=conf_carg[2])
+                elif conf_carg[0] == '3 agujeros':
+                    # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
+                    # con el tipo de sonda
+                    if len(conf_carg) != 4:
+                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        flag = 1
+                    # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
+                    # en la calibracion
+                    for i in conf_carg[1:]:
+                        if i not in num_tomas_list:
+                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
+                                        'no utilizadas en la calibracion')
+                            flag = 1
+                    if flag == 0:
+                        # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
+                        window['-NUM1-'].update(value=conf_carg[1])
+                        window['-NUM2-'].update(value=conf_carg[2])
+                        window['-NUM3-'].update(value=conf_carg[3])
+                elif conf_carg[0] == '5 agujeros':
+                    # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
+                    # con el tipo de sonda
+                    if len(conf_carg) != 6:
+                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        flag = 1
+                    # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
+                    # en la calibracion
+                    for i in conf_carg[1:]:
+                        if i not in num_tomas_list:
+                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
+                                        'no utilizadas en la calibracion')
+                            flag = 1
+                    if flag == 0:
+                        # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
+                        window['-NUM1-'].update(value=conf_carg[1])
+                        window['-NUM2-'].update(value=conf_carg[2])
+                        window['-NUM3-'].update(value=conf_carg[3])
+                        window['-NUM4-'].update(value=conf_carg[4])
+                        window['-NUM5-'].update(value=conf_carg[5])
+                elif conf_carg[0] == '7 agujeros':
+                    # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
+                    # con el tipo de sonda
+                    if len(conf_carg) != 8:
+                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        flag = 1
+                    # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
+                    # en la calibracion
+                    for i in conf_carg[1:]:
+                        if i not in num_tomas_list:
+                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
+                                        'no utilizadas en la calibracion')
+                            flag = 1
+                    if flag == 0:
+                        # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
+                        window['-NUM1-'].update(value=conf_carg[1])
+                        window['-NUM2-'].update(value=conf_carg[2])
+                        window['-NUM3-'].update(value=conf_carg[3])
+                        window['-NUM4-'].update(value=conf_carg[4])
+                        window['-NUM5-'].update(value=conf_carg[5])
+                        window['-NUM6-'].update(value=conf_carg[6])
+                        window['-NUM7-'].update(value=conf_carg[7])
+
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:
         break

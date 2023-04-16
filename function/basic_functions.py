@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt
 
 
 # Funciòn para determinar que los valores ingresados en la seccion "Relacion Agujeros: Tomas" sean correctos
-def ref_aguj_toma_ok(values):
+def ref_aguj_toma_ok(values, probe_type):
     # Tipo de sonda seleccionada
-    num_tomas = values['-NUMTOMAS-']
+    num_tomas = probe_type
     flag = 0  # Variable para determinar que es posible guardar la configuracion
     # Verifiacion de completitud de los datos ingresados
     data_conf = []
     if num_tomas == '2 agujeros':
-        data_conf = [values['-NUMTOMAS-'], values['-NUM1-'], values['-NUM2-'], values['-NUMPS-'], values['-NUMPT-']]
+        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
@@ -21,12 +21,11 @@ def ref_aguj_toma_ok(values):
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         # Se usa el elemento SET para determinar si hay tomas repetidas
-        if len(set(data_conf)) != 5 and flag == 0:
+        if len(set(data_conf)) != 3 and flag == 0:
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     elif num_tomas == '3 agujeros':
-        data_conf = [values['-NUMTOMAS-'], values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUMPS-'],
-                     values['-NUMPT-']]
+        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-'], values['-NUM3-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
@@ -34,25 +33,25 @@ def ref_aguj_toma_ok(values):
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         # Se usa el elemento SET para determinar si hay tomas repetidas
-        if len(set(data_conf)) != 6 and flag == 0:
+        if len(set(data_conf)) != 4 and flag == 0:
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     elif num_tomas == '5 agujeros':
         # Se usa el elemento SET para determinar si hay tomas repetidas
-        data_conf = [values['-NUMTOMAS-'], values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
-                     values['-NUM5-'], values['-NUMPS-'], values['-NUMPT-']]
+        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
+                     values['-NUM5-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
                 error_popup('Uno o mas agujeros no tienen la toma de presion definida')
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
-        if len(set(data_conf)) != 8 and flag == 0:
+        if len(set(data_conf)) != 6 and flag == 0:
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     elif num_tomas == '7 agujeros':
-        data_conf = [values['-NUMTOMAS-'], values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
-                     values['-NUM5-'], values['-NUM6-'], values['-NUM7-'], values['-NUMPS-'], values['-NUMPT-']]
+        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
+                     values['-NUM5-'], values['-NUM6-'], values['-NUM7-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
@@ -60,7 +59,7 @@ def ref_aguj_toma_ok(values):
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         # Se usa el elemento SET para determinar si hay tomas repetidas
-        if len(set(data_conf)) != 10 and flag == 0:
+        if len(set(data_conf)) != 8 and flag == 0:
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     else:

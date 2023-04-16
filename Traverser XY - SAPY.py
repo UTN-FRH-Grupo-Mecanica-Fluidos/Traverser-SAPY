@@ -136,6 +136,9 @@ window1 = sg.Window("Traverser XY – SAPY - Version 1.0 (alfa)", layout, resiza
                     finalize=True)
 window2 = None  # Ventana de progreso
 
+# Inicio de variables. Es para evitar errores durante la ejecucion, por inexistencia de esta.
+probe_type = '-'
+
 
 while True:
     # Se utiliza el sistema multi-window. Se utiliza una segunda ventana.
@@ -150,6 +153,125 @@ while True:
         window['-MINBETA-'].update('{}'.format(round(random.uniform(-20, 20), 1)))
         window['-MAXBETA-'].update('{}'.format(round(random.uniform(-20, 20), 1)))
 
+    # Evento de carga de archivo de calibracion
+    if event == '-CALIBFILE-':
+        can_process_calib = True
+        # ---------Carga de los datos del archivo de calibracion---------
+        try:
+            raw_data = []  # Reinicio de la variable donde se guardan los datos del CSV.
+            # Carga de datos para un formato de separacion de columnas del tipo ","
+            with open(values['-CALIBFILE-']) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=',')
+                # Extraigo todas las filas del archivo y se lo procesa.
+                for csv_row in csv_reader:
+                    raw_data.append(csv_row)
+            # Si el numero de columnas de la primera linea es menor a 2, es debido a que el separador
+            # de columnas del CSV es ";".
+            if len(raw_data[0]) <= 1:
+                # Se vuelve a cargar el archivo con el delimitador ";" y se cambia los
+                # decimales de "," a "." para poder procesarlo.
+                raw_data = []  # Reinicio de la variable donde se guardan los datos del CSV.
+                with open(values['-CALIBFILE-']) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=';')
+                    # Extraigo todas las filas de un archivo y se lo procesa.
+                    for csv_row in csv_reader:
+                        raw_data.append(csv_row)
+                    # Convierto en float los valores. Cambio "," a ".". Se usa "nested list comprehensions" para procesar
+                    raw_data = [[l.replace(',', '.') for l in i] for i in raw_data]
+            # Se determina el tipo de sonda y si el calculo de los coeficientes de calibracion
+            # fue realizado en forma "Multi-Zona"
+            probe_type = raw_data[0][1]
+            sect_calc = raw_data[1][1]
+            # Eliminar informacion extra.
+            calib_data = [raw_data[i] for i in range(0, 4)]  # Se elimina el pie de nota
+            del calib_data[2][0]  # Se elimina primer elemento del encabezado
+            del calib_data[3][0]  # Se elimina primer elemento de los datos de los coeficientes
+            del calib_data[0:2]  # Se elimina primera linea con el tipo de sonda y la segunda
+        except Exception as e:
+            # Si el archivo fallo en procesarse se advierte
+            print(e)
+            error_popup('El archivo de calibracion no es procesable')
+            window['-MINALPHA-'].update('{}'.format('-'))
+            window['-MAXALPHA-'].update('{}'.format('-'))
+            window['-MINBETA-'].update('{}'.format('-'))
+            window['-MAXBETA-'].update('{}'.format('-'))
+            window['-MAXBETA-'].update('{}'.format('-'))
+            window['-TYPEPROBE-'].update('{}'.format('-'))
+            window['-MULTIZONE-'].update('{}'.format('-'))
+            window['-IMAGENSONDA-'].update(source=sin_agujeros, subsample=3)
+            window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda no definida'
+            window['-NUM1-'].update(disabled=True, value=[])
+            window['-NUM2-'].update(disabled=True, value=[])
+            window['-NUM3-'].update(disabled=True, value=[])
+            window['-NUM4-'].update(disabled=True, value=[])
+            window['-NUM5-'].update(disabled=True, value=[])
+            window['-NUM6-'].update(disabled=True, value=[])
+            window['-NUM7-'].update(disabled=True, value=[])
+            can_process_calib = False
+        # Como el archivo de calibracion es valido se cargan los datos y se actualiza los datos en el layout
+        if can_process_calib:
+            # Se realiza una conversion a float y se redondea los valores durante la carga de valores.
+            # Angulos 1 cifra significativa. Coeficientes 4 cifras significativas
+            if probe_type == '2 agujeros':
+                # Carga de datos de la calibracion para 2 agujeros
+                angle = []
+                cpangle = []
+                for i in range(int(len(calib_data[1]) / 2)):
+                    # Los coeficientes vienen en paquetes de 2 datos por angulo
+                    angle.append(round(float(calib_data[1][2 * i + 0]), 1))
+                    cpangle.append(round(float(calib_data[1][2 * i + 1]), 4))
+                # asfa
+            elif probe_type == '3 agujeros':
+                # Carga de datos de la calibracion para 3 agujeros
+                angle = []
+                cpangle = []
+                cpestat = []
+                cptotal = []
+                for i in range(int(len(calib_data[1]) / 4)):
+                    # Los coeficientes vienen en paquetes de 4 datos por angulo
+                    angle.append(round(float(calib_data[1][4 * i + 0]), 1))
+                    cpangle.append(round(float(calib_data[1][4 * i + 1]), 4))
+                    cpestat.append(round(float(calib_data[1][4 * i + 2]), 4))
+                    cptotal.append(round(float(calib_data[1][4 * i + 3]), 4))
+            elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
+                # Carga de datos de la calibracion para 5 y 7 agujeros. Tienen los mismos coeficientes.
+                alpha = []
+                beta = []
+                cpalpha = []
+                cpbeta = []
+                cpestat = []
+                cptotal = []
+                max_zone = []
+                for i in range(int(len(calib_data[1]) / 7)):
+                    # Los coeficientes vienen en paquetes de 7 datos por angulo. Los datos del "max_zone" se cargan
+                    # aunque no sea sectorizado el analisis
+                    alpha.append(round(float(calib_data[1][7 * i + 0]), 1))
+                    beta.append(round(float(calib_data[1][7 * i + 1]), 1))
+                    cpalpha.append(round(float(calib_data[1][7 * i + 2]), 4))
+                    cpbeta.append(round(float(calib_data[1][7 * i + 3]), 4))
+                    cpestat.append(round(float(calib_data[1][7 * i + 4]), 4))
+                    cptotal.append(round(float(calib_data[1][7 * i + 5]), 4))
+                    max_zone.append(calib_data[1][7 * i + 6])
+            else:
+                # Sino falla durante la carga del archivo pero el dato del tipo de sonda es erroneo
+                # se filta en esta estancia. Se actualiza el layout de la misma forma que fallara la carga.
+                window['-MINALPHA-'].update('{}'.format('-'))
+                window['-MAXALPHA-'].update('{}'.format('-'))
+                window['-MINBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-TYPEPROBE-'].update('{}'.format('-'))
+                window['-MULTIZONE-'].update('{}'.format('-'))
+                window['-IMAGENSONDA-'].update(source=sin_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda no definida'
+                window['-NUM1-'].update(disabled=True, value=[])
+                window['-NUM2-'].update(disabled=True, value=[])
+                window['-NUM3-'].update(disabled=True, value=[])
+                window['-NUM4-'].update(disabled=True, value=[])
+                window['-NUM5-'].update(disabled=True, value=[])
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                error_popup('El archivo de calibracion no es procesable')
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:
         break

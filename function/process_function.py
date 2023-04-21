@@ -1,7 +1,6 @@
 from statistics import mean, stdev
 import scipy.stats as stats
 
-
 # Se preprocesan los datos inicialmente y luego se determinan las presiones y las incertidumbres
 def data_process(data_csv, vref, nivconf, values):
     # --------------Procesamiento de los datos en bruto--------------
@@ -17,13 +16,13 @@ def data_process(data_csv, vref, nivconf, values):
         data.append(data_buffer)
     # ----------------Procesamiento de las presiones y angulos----------------
     data_pressure = []  # Inicializo la variable de salida.
-    # Agrego Alfa y Beta al archivo de presion y encabezado
-    alfa = ['Alfa']  # Encabezado alfa
-    alfa += data[0]  # Agregado datos alfa
-    beta = ['Beta']  # Encabezado beta
-    beta += data[1]  # Agregado datos beta
-    data_pressure.append(alfa)  # Agregado alfa
-    data_pressure.append(beta)  # Agregado beta
+    # Agrego X e Y al archivo de presion y encabezado
+    x_posit = ['Posicion X']  # Encabezado alfa
+    x_posit += data[0]  # Agregado datos alfa
+    y_posit = ['Posicion Y']  # Encabezado beta
+    y_posit += data[1]  # Agregado datos beta
+    data_pressure.append(x_posit)  # Agregado de X
+    data_pressure.append(y_posit)  # Agregado de Y
     # Calculo de las presiones
     for i in range(1, int(len(data) / 2)):  # Se utiliza la estrategia de que los valores de las tomas vienen en pares
         # Valor de referencia del sensor analizado.
@@ -53,8 +52,9 @@ def data_process(data_csv, vref, nivconf, values):
         if sample > 1:
             typea = stdev(data_raw) / (sample ** 0.5)  # Desviación típica experimental.
             # Se diferencia el calculo del componente Tipo B para los diferentes sensores.
+            # VER QUE INCERTIDUMBRE TIPO B SE COLOCARA PARA POSICION DEL TRAVERSER
             if data_pressure[i][0] == 'Alfa' or data_pressure[i][0] == 'Beta':
-                typeb = averange * 0.01 / (3 ** 0.5)  # Componente Tipo B debido a la calibración del sensor de angulo.
+                typeb = averange * 0.00 / (3 ** 0.5)  # Componente Tipo B debido a la posicion del traverser.
             else:
                 typeb = averange * 0.015 / (
                         3 ** 0.5)  # Componente Tipo B debido a la calibración del sensor de presion.
@@ -90,79 +90,67 @@ def data_process(data_csv, vref, nivconf, values):
         # Organizo los datos calculados
         uncert.extend([averange, uexpand, sample, distrib, k])
         data_uncert.append(uncert)
-    # --------------Calculo de los coeficientes de calibracion--------------
+    # --------------Calculo de los coeficientes del traverser--------------
     # Informacion sobre el tipo de sonda
-    probe_type = values['-NUMTOMAS-']
+    probe_type = values['-TYPEPROBE-']
     # Lista con el numero de toma asignado para cada agujero generado por el usuario.
     relat_hole_tap = [values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'], values['-NUM5-'],
-                      values['-NUM6-'], values['-NUM7-'], values['-NUMPS-'], values['-NUMPT-']]
+                      values['-NUM6-'], values['-NUM7-']]
     relat_hole_tap = [x for x in relat_hole_tap if x != '']  # Elimino los valores vacios o agujeros no validos.
-    # Busco la organizacion que poseen los datos respecto al numero de toma. EJ: Alfa Beta Toma x Toma y
+    # Busco la organizacion que poseen los datos respecto al numero de toma. EJ: X Y Toma a Toma b
     header_data = [data_uncert[i][0] for i in range(len(data_uncert))]
     # Se determina la relacion entre el "numero de agujero-numero de toma-ubicacion del numero de toma en los datos".
     relat_hole_tap_data = []
     for i in range(len(relat_hole_tap)):
         relat_hole_tap_data.append(int(header_data.index('Toma {}'.format(relat_hole_tap[i]))))
 
-    # Calculo de los coeficientes de calibracion para una sonda de 2 agujeros.
-    if probe_type == '2 agujeros':
-        # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
-        hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
-                     'pestatic': data_uncert[relat_hole_tap_data[2]][1],
-                     'ptotal': data_uncert[relat_hole_tap_data[3]][1]}
-        # Calculo de coeficientes
-        q = hole_data['ptotal'] - hole_data['pestatic']
-        cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
-        # Discriminacion en funcion del angulo definido para la calibracion.
-        if values['-ALPHA PLANE-']:
-            data_calib = [['Angulo', data_uncert[0][1]], ['Cpangulo', cpangle]]
-        if values['-BETA PLANE-']:
-            data_calib = [['Angulo', data_uncert[1][1]], ['Cpangulo', cpangle]]
+    # # Calculo de los coeficientes del traverser para una sonda de 2 agujeros.
+    # if probe_type == '2 agujeros':
+    #     # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
+    #     hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
+    #                  'pestatic': data_uncert[relat_hole_tap_data[2]][1],
+    #                  'ptotal': data_uncert[relat_hole_tap_data[3]][1]}
+    #     # Calculo de coeficientes
+    #     q = hole_data['ptotal'] - hole_data['pestatic']
+    #     cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
+    #     # Discriminacion en funcion del angulo definido para la calibracion.
+    #     if values['-ALPHA PLANE-']:
+    #         data_coef = [['Angulo', data_uncert[0][1]], ['Cpangulo', cpangle]]
+    #     if values['-BETA PLANE-']:
+    #         data_coef = [['Angulo', data_uncert[1][1]], ['Cpangulo', cpangle]]
 
-    # Calculo de los coeficientes de calibracion para una sonda de 3 agujeros.
+    # Calculo de los coeficientes del traverser para una sonda de 3 agujeros.
     if probe_type == '3 agujeros':
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
         hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
-                     'hole 3': data_uncert[relat_hole_tap_data[2]][1],
-                     'pestatic': data_uncert[relat_hole_tap_data[3]][1],
-                     'ptotal': data_uncert[relat_hole_tap_data[4]][1]}
+                     'hole 3': data_uncert[relat_hole_tap_data[2]][1]}
         # Calculo de coeficientes
         pss = mean([hole_data['hole 2'], hole_data['hole 3']])
         denom = hole_data['hole 1'] - pss
         cpangle = (hole_data['hole 3'] - hole_data['hole 2']) / denom
-        cpest = (pss - hole_data['pestatic']) / denom
-        cptot = (hole_data['hole 1'] - hole_data['ptotal']) / denom
         # Discriminacion en funcion del angulo definido para la calibracion.
         if values['-ALPHA PLANE-']:
-            data_calib = [['Angulo', data_uncert[0][1]], ['Cpangulo', cpangle], ['Cpestatico', cpest],
-                          ['Cptotal', cptot]]
+            data_coef = [['Angulo', data_uncert[0][1]], ['Cpangulo', cpangle]]
         if values['-BETA PLANE-']:
-            data_calib = [['Angulo', data_uncert[1][1]], ['Cpangulo', cpangle], ['Cpestatico', cpest],
-                          ['Cptotal', cptot]]
+            data_coef = [['Angulo', data_uncert[1][1]], ['Cpangulo', cpangle]]
 
-    # Calculo de los coeficientes de calibracion para una sonda de 5 agujeros.
+    # Calculo de los coeficientes del traverser para una sonda de 5 agujeros.
     if probe_type == '5 agujeros':
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
         hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
                      'hole 3': data_uncert[relat_hole_tap_data[2]][1], 'hole 4': data_uncert[relat_hole_tap_data[3]][1],
                      'hole 5': data_uncert[relat_hole_tap_data[4]][1]}
-        # Determinacion del agujero con la maxima presion. Se usa para grandes angulos de calibracion.
+        # Determinacion del agujero con la maxima presion. Se usa para analisis de grandes angulos de flujo.
         max_hole = max(hole_data, key=hole_data.get)
-        # Agregado de la presion total y estatica a los datos. El agregado posterior facilita la determinacion
-        # del agujero con la maxima presion.
-        hole_data['pestatic'] = data_uncert[relat_hole_tap_data[5]][1]
-        hole_data['ptotal'] = data_uncert[relat_hole_tap_data[6]][1]
         # Analisis discriminado para grande y bajos angulos de calibracion
-        if values['-HIGH ANGLE-']:
-            # Grandes angulos de calibracion
+        if values['-MULTIZONE-'] == 'Utilizado':
+            # Grandes angulos de flujo
             if max_hole == 'hole 1':
                 # Calculo de coeficientes de calibracion para cuando el agujero 1 tiene la mayor presion. Bajos angulos
                 pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
                 denom = hole_data['hole 1'] - pss
                 cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
                 cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
-                cpest = (pss - hole_data['pestatic']) / denom
-                cptot = (hole_data['hole 1'] - hole_data['ptotal']) / denom
                 zone = 'Zona 1'
             elif max_hole == 'hole 2':
                 # Calculo de coeficientes de calibracion para cuando el agujero 2 tiene
@@ -171,8 +159,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = hole_data['hole 2'] - pss
                 cpalfa = (hole_data['hole 1'] - hole_data['hole 2']) / denom
                 cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
-                cpest = (pss - hole_data['pestatic']) / denom
-                cptot = (hole_data['hole 2'] - hole_data['ptotal']) / denom
                 zone = 'Zona 2'
             elif max_hole == 'hole 3':
                 # Calculo de coeficientes de calibracion para cuando el agujero 3 tiene
@@ -181,8 +167,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = hole_data['hole 3'] - pss
                 cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
                 cpbeta = (hole_data['hole 3'] - hole_data['hole 1']) / denom
-                cpest = (pss - hole_data['pestatic']) / denom
-                cptot = (hole_data['hole 3'] - hole_data['ptotal']) / denom
                 zone = 'Zona 3'
             elif max_hole == 'hole 4':
                 # Calculo de coeficientes de calibracion para cuando el agujero 4 tiene
@@ -191,8 +175,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = hole_data['hole 4'] - pss
                 cpalfa = (hole_data['hole 4'] - hole_data['hole 1']) / denom
                 cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
-                cpest = (pss - hole_data['pestatic']) / denom
-                cptot = (hole_data['hole 4'] - hole_data['ptotal']) / denom
                 zone = 'Zona 4'
             elif max_hole == 'hole 5':
                 # Calculo de coeficientes de calibracion para cuando el agujero 5 tiene
@@ -201,11 +183,9 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = hole_data['hole 5'] - pss
                 cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
                 cpbeta = (hole_data['hole 1'] - hole_data['hole 5']) / denom
-                cpest = (pss - hole_data['pestatic']) / denom
-                cptot = (hole_data['hole 5'] - hole_data['ptotal']) / denom
                 zone = 'Zona 5'
-            data_calib = [['Alfa', data_uncert[0][1]], ['Beta', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Cpestatico', cpest], ['Cptotal', cptot], ['Zona maxima presion', zone]]
+            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
+                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
         else:
             # Bajos angulos de calibracion
             # Calculo de coeficientes.
@@ -213,11 +193,9 @@ def data_process(data_csv, vref, nivconf, values):
             denom = hole_data['hole 1'] - pss
             cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
             cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
-            cpest = (pss - hole_data['pestatic']) / denom
-            cptot = (hole_data['hole 1'] - hole_data['ptotal']) / denom
             zone = 'N/A '
-            data_calib = [['Alfa', data_uncert[0][1]], ['Beta', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Cpestatico', cpest], ['Cptotal', cptot], ['Zona maxima presion', zone]]
+            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
+                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
 
     # Calculo de los coeficientes de calibracion para una sonda de 7 agujeros.
     if probe_type == '7 agujeros':
@@ -226,14 +204,10 @@ def data_process(data_csv, vref, nivconf, values):
                      'hole 3': data_uncert[relat_hole_tap_data[2]][1], 'hole 4': data_uncert[relat_hole_tap_data[3]][1],
                      'hole 5': data_uncert[relat_hole_tap_data[4]][1], 'hole 6': data_uncert[relat_hole_tap_data[5]][1],
                      'hole 7': data_uncert[relat_hole_tap_data[6]][1]}
-        # Determinacion del agujero con la maxima presion. Se usa para grandes angulos de calibracion.
+        # Determinacion del agujero con la maxima presion. Se usa para analisis de grandes angulos de flujo.
         max_hole = max(hole_data, key=hole_data.get)
-        # Agregado de la presion total y estatica a los datos. El agregado posterior facilita la determinacion
-        # del agujero con la maxima presion.
-        hole_data['pestatic'] = data_uncert[relat_hole_tap_data[7]][1]
-        hole_data['ptotal'] = data_uncert[relat_hole_tap_data[8]][1]
         # Analisis discriminado para grande y bajos angulos de calibracion
-        if values['-HIGH ANGLE-']:
+        if values['-MULTIZONE-']:
             # Grandes angulos de calibracion
             if max_hole == 'hole 1':
                 # Calculo de coeficientes de calibracion para cuando el agujero 1 tiene la mayor presion. Bajos angulos
@@ -247,8 +221,6 @@ def data_process(data_csv, vref, nivconf, values):
                 # Coeficientes alfa y beta
                 cpalfa = cpa + ((cpb - cpc) / denom)
                 cpbeta = (cpb + cpc) / (3 ** 0.5)
-                cpest = (pss - hole_data['pestatic']) / denom
-                cptot = (hole_data['hole 1'] - hole_data['ptotal']) / denom
                 zone = 'Zona 1'
             elif max_hole == 'hole 2':
                 # Calculo de coeficientes de calibracion para cuando el agujero 2 tiene
@@ -256,8 +228,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = (hole_data['hole 2'] - 0.5 * (hole_data['hole 3'] + hole_data['hole 7']))
                 cprad = (hole_data['hole 2'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 7'] - hole_data['hole 3']) / denom
-                cptot = (hole_data['hole 2'] - hole_data['ptotal']) / denom
-                cpest = (0.5 * (hole_data['hole 3'] + hole_data['hole 7']) - hole_data['pestatic']) / denom
                 zone = 'Zona 2'
             elif max_hole == 'hole 3':
                 # Calculo de coeficientes de calibracion para cuando el agujero 3 tiene
@@ -265,8 +235,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = (hole_data['hole 3'] - 0.5 * (hole_data['hole 2'] + hole_data['hole 4']))
                 cprad = (hole_data['hole 3'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 2'] - hole_data['hole 4']) / denom
-                cptot = (hole_data['hole 3'] - hole_data['ptotal']) / denom
-                cpest = (0.5 * (hole_data['hole 2'] + hole_data['hole 4']) - hole_data['pestatic']) / denom
                 zone = 'Zona 3'
             elif max_hole == 'hole 4':
                 # Calculo de coeficientes de calibracion para cuando el agujero 4 tiene
@@ -274,8 +242,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = (hole_data['hole 4'] - 0.5 * (hole_data['hole 3'] + hole_data['hole 5']))
                 cprad = (hole_data['hole 4'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 3'] - hole_data['hole 5']) / denom
-                cptot = (hole_data['hole 4'] - hole_data['ptotal']) / denom
-                cpest = (0.5 * (hole_data['hole 3'] + hole_data['hole 5']) - hole_data['pestatic']) / denom
                 zone = 'Zona 4'
             elif max_hole == 'hole 5':
                 # Calculo de coeficientes de calibracion para cuando el agujero 5 tiene
@@ -283,8 +249,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = (hole_data['hole 5'] - 0.5 * (hole_data['hole 4'] + hole_data['hole 6']))
                 cprad = (hole_data['hole 5'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 4'] - hole_data['hole 6']) / denom
-                cptot = (hole_data['hole 5'] - hole_data['ptotal']) / denom
-                cpest = (0.5 * (hole_data['hole 4'] + hole_data['hole 6']) - hole_data['pestatic']) / denom
                 zone = 'Zona 5'
             elif max_hole == 'hole 6':
                 # Calculo de coeficientes de calibracion para cuando el agujero 6 tiene
@@ -292,8 +256,6 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = (hole_data['hole 6'] - 0.5 * (hole_data['hole 5'] + hole_data['hole 7']))
                 cprad = (hole_data['hole 6'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 5'] - hole_data['hole 7']) / denom
-                cptot = (hole_data['hole 6'] - hole_data['ptotal']) / denom
-                cpest = (0.5 * (hole_data['hole 5'] + hole_data['hole 7']) - hole_data['pestatic']) / denom
                 zone = 'Zona 6'
             elif max_hole == 'hole 7':
                 # Calculo de coeficientes de calibracion para cuando el agujero 7 tiene
@@ -301,16 +263,14 @@ def data_process(data_csv, vref, nivconf, values):
                 denom = (hole_data['hole 7'] - 0.5 * (hole_data['hole 6'] + hole_data['hole 2']))
                 cprad = (hole_data['hole 7'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 6'] - hole_data['hole 2']) / denom
-                cptot = (hole_data['hole 7'] - hole_data['ptotal']) / denom
-                cpest = (0.5 * (hole_data['hole 6'] + hole_data['hole 2']) - hole_data['pestatic']) / denom
                 zone = 'Zona 7'
             # El paper determina otra nomenclatura para los coeficientes cuando se analiza en forma sectorial.
             # Se toma la direccion radial como alfa y la tangencial como beta. No deberia haber diferencia.
             if cprad:
                 cpalfa = cprad
                 cpbeta = cptan
-            data_calib = [['Alfa', data_uncert[0][1]], ['Beta', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Cpestatico', cpest], ['Cptotal', cptot], ['Zona maxima presion', zone]]
+            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
+                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
         else:
             # Bajos angulos de calibracion
             # Calculo de coeficientes.
@@ -327,7 +287,10 @@ def data_process(data_csv, vref, nivconf, values):
             cpest = (pss - hole_data['pestatic']) / denom
             cptot = (hole_data['hole 1'] - hole_data['ptotal']) / denom
             zone = 'N/A '
-            data_calib = [['Alfa', data_uncert[0][1]], ['Beta', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Cpestatico', cpest], ['Cptotal', cptot], ['Zona maxima presion', zone]]
+            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
+                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
 
-    return data_pressure, data_uncert, data_calib
+    # Carga de funciones de interpolacion
+
+
+    return data_pressure, data_uncert, data_coef

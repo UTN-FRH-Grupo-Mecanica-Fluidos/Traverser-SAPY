@@ -6,14 +6,14 @@ import matplotlib.pyplot as plt
 
 
 # Funciòn para determinar que los valores ingresados en la seccion "Relacion Agujeros: Tomas" sean correctos
-def ref_aguj_toma_ok(values, probe_type):
+def ref_aguj_toma_ok(values):
     # Tipo de sonda seleccionada
-    num_tomas = probe_type
+    num_tomas = values['-TYPEPROBE-']
     flag = 0  # Variable para determinar que es posible guardar la configuracion
     # Verifiacion de completitud de los datos ingresados
     data_conf = []
     if num_tomas == '2 agujeros':
-        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-']]
+        data_conf = [num_tomas, values['-NUM1-'], values['-NUM2-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
@@ -25,7 +25,7 @@ def ref_aguj_toma_ok(values, probe_type):
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     elif num_tomas == '3 agujeros':
-        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-'], values['-NUM3-']]
+        data_conf = [num_tomas, values['-NUM1-'], values['-NUM2-'], values['-NUM3-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
@@ -38,7 +38,7 @@ def ref_aguj_toma_ok(values, probe_type):
             flag = 1
     elif num_tomas == '5 agujeros':
         # Se usa el elemento SET para determinar si hay tomas repetidas
-        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
+        data_conf = [num_tomas, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
                      values['-NUM5-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
@@ -50,7 +50,7 @@ def ref_aguj_toma_ok(values, probe_type):
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     elif num_tomas == '7 agujeros':
-        data_conf = [probe_type, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
+        data_conf = [num_tomas, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
                      values['-NUM5-'], values['-NUM6-'], values['-NUM7-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
@@ -63,7 +63,7 @@ def ref_aguj_toma_ok(values, probe_type):
             error_popup('Una toma de presion es usada en mas de un agujero')
             flag = 1
     else:
-        error_popup('No se selecciono ningun tipo de sonda')
+        error_popup('No se cargo ningun tipo de sonda')
         flag = 1
     return flag, data_conf
 
@@ -196,22 +196,22 @@ def save_csv_incert(save_uncert, conf_level, path, seplist, decsep):
         writer.writerow(['de otras fuentes de incertidumbre.'])
         f.close()  # Cerrado del archivo CSV
 
-
-def save_csv_calibr(data_calib, path, seplist, decsep, values):
-    with open(path + '/calibracion.csv', "w", newline='') as f:
+# NO SE USARIA
+def save_csv_coef(data_calib, path, seplist, decsep, values):
+    with open(path + '/traverser-coeficientes.csv', "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
         # Encabezado de las filas.
         column = ['', 'Promedio']
         # Informacion del tipo de sonda
-        writer.writerow(['Tipo de sonda: ', values['-NUMTOMAS-']])
+        writer.writerow(['Tipo de sonda: ', values['-TYPEPROBE-']])
         # Informacion si se utiliza el analisis sectorizado
-        if values['-NUMTOMAS-'] == '2 agujeros' or values['-NUMTOMAS-'] == '3 agujeros':
+        if values['-TYPEPROBE-'] == '2 agujeros' or values['-TYPEPROBE-'] == '3 agujeros':
             # Sonda de 2 y 3 agujeros no tiene analisis sectorizado.
             writer.writerow(['Analisis Sectorizado: ', 'No Aplica'])
         else:
-            if values['-HIGH ANGLE-']:
+            if values['-MULTIZONE-'] == 'Utilizado':
                 writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
-            elif not values['-HIGH ANGLE-']:
+            else:
                 writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
 
         # Guardado de datos

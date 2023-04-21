@@ -1,6 +1,7 @@
 import os
 import random
 import base64
+from scipy import interpolate
 
 # Carga imagenes del layout e icono
 from image.image_agujeros import *
@@ -137,12 +138,16 @@ window1 = sg.Window("Traverser XY – SAPY - Version 1.0 (alfa)", layout, resiza
 window2 = None  # Ventana de progreso
 
 # Inicio de variables. Es para evitar errores durante la ejecucion, por inexistencia de esta.
-probe_type = '-'
+# probe_type = '-'
+# sect_calc = '-'
 
 
 while True:
     # Se utiliza el sistema multi-window. Se utiliza una segunda ventana.
     window, event, values = sg.read_all_windows()
+    # Se incluye el tipo de sonda dentro de la variable "values". Facilita el codigo en las funciones.
+    values.update({'-TYPEPROBE-': window['-TYPEPROBE-'].get()})
+    values.update({'-MULTIZONE-': window['-MULTIZONE-'].get()})
     print('event:', event)
     print('values:', values)
 
@@ -220,7 +225,8 @@ while True:
                     # Los coeficientes vienen en paquetes de 2 datos por angulo
                     angle.append(round(float(calib_data[1][2 * i + 0]), 1))
                     cpangle.append(round(float(calib_data[1][2 * i + 1]), 4))
-                # asfa
+                # Carga de funciones de interpolacion
+                angle_interp = interpolate.interp2d(cpangle, angle, kind='cubic', bounds_error=False,
             elif probe_type == '3 agujeros':
                 # Carga de datos de la calibracion para 3 agujeros
                 angle = []
@@ -233,6 +239,13 @@ while True:
                     cpangle.append(round(float(calib_data[1][4 * i + 1]), 4))
                     cpestat.append(round(float(calib_data[1][4 * i + 2]), 4))
                     cptotal.append(round(float(calib_data[1][4 * i + 3]), 4))
+                # Carga de funciones de interpolacion
+                angle_interp = interpolate.interp2d(cpangle, angle, kind='cubic', bounds_error=False,
+                                                         fill_value='nan')
+                cpestat_interp = interpolate.interp2d(cpangle, cpestat, kind='cubic', bounds_error=False,
+                                                            fill_value='nan')
+                cptotal_interp = interpolate.interp2d(cpangle, cptotal, kind='cubic', bounds_error=False,
+                                                            fill_value='nan')
             elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
                 # Carga de datos de la calibracion para 5 y 7 agujeros. Tienen los mismos coeficientes.
                 alpha = []
@@ -252,6 +265,15 @@ while True:
                     cpestat.append(round(float(calib_data[1][7 * i + 4]), 4))
                     cptotal.append(round(float(calib_data[1][7 * i + 5]), 4))
                     max_zone.append(calib_data[1][7 * i + 6])
+                # Carga de funciones de interpolacion
+                alfa_interp = interpolate.interp2d(cpalpha, cpbeta, alpha, kind='cubic', bounds_error=False,
+                                                         fill_value='nan')
+                beta_interp = interpolate.interp2d(cpalpha, cpbeta, beta, kind='cubic', bounds_error=False,
+                                                         fill_value='nan')
+                cpestat_interp = interpolate.interp2d(cpalpha, cpbeta, cpestat, kind='cubic', bounds_error=False,
+                                                            fill_value='nan')
+                cptotal_interp = interpolate.interp2d(cpalpha, cpbeta, cptotal, kind='cubic', bounds_error=False,
+                                                            fill_value='nan')
             else:
                 # Sino falla durante la carga del archivo pero el dato del tipo de sonda es erroneo
                 # se filta en esta estancia. Se actualiza el layout de la misma forma que fallara la carga.
@@ -359,8 +381,10 @@ while True:
             fnames.remove("presiones.csv")
         if "incertidumbre.csv" in file_list:
             fnames.remove("incertidumbre.csv")
+        if "traverser-coeficientes.csv" in file_list:
+            fnames.remove("traverser-coeficientes.csv")
         if "traverser-velocidades.csv" in file_list:
-            fnames.remove("calibracion.csv")
+            fnames.remove("traverser-velocidades.csv")
         # Clasificacion de los archivos CSV en los del traverser y cero
         traverser_files = []
         zero_files = []
@@ -411,7 +435,7 @@ while True:
     if event == '-GUARDCONF-':
         # Determinacion de que los datos ingresados por layout no tengan tomas repetidas
         # o no se hallan ingresado valores. Se utiliza una funcion.
-        flag, data_conf = ref_aguj_toma_ok(values, probe_type)
+        flag, data_conf = ref_aguj_toma_ok(values)
         # Si esta correcto se prosigue con el guardado de un archivo de extension "*.conf"
         if flag == 0:
             save_file = sg.popup_get_file('Guardar archivo de configuracion',
@@ -442,7 +466,7 @@ while True:
             # Analisis del archivo de configuracion. Si el tipo de sonda de la configuracion es diferente al
             # del utilizado por el archivos de calibracion cargado, se advierte. Se cargan los valores
             # en la seccion "Relacion Agujero: Toma de presion".
-            if not probe_type == conf_carg[0]:
+            if not values['-TYPEPROBE-'] == conf_carg[0]:
                 error_popup(
                     'El archivo de configuracion no coincide con el numero de tomas de la calibracion \n'
                     'No olvidar cargar el archivo de calibracion previmamente')
@@ -526,6 +550,172 @@ while True:
                         window['-NUM5-'].update(value=conf_carg[5])
                         window['-NUM6-'].update(value=conf_carg[6])
                         window['-NUM7-'].update(value=conf_carg[7])
+
+    # Procesamiento de las presiones medidas, la incertidumbre de las presiones
+    # y ... (calibracion de la sonda junto con sus incertidumbres)
+    if event == '-PROCESS-':
+        can_process = True  # Flag de que no existen errores.
+        # Ingreso de datos desde la interfaz grafica.
+        # Nombre de la carpeta de trabajo
+        path_folder = values['-FOLDER-']
+        # Nombre del archivo del cero referencia
+        cero_file = values['-CERO-']
+        # Formato de salida CSV
+        if values[0]:
+            option = 0
+        elif values[1]:
+            option = 1
+        else:
+            option = 2
+        seplist, decsep = format_csv(option)
+        # Nivel de Confianza. Se eligio 68.27%, 95% y 99%. Los que se suelen usar.
+        conf_level = values['-NIVCONF-']
+        if conf_level == '68%':
+            conf_level = float(0.6827)
+        elif conf_level == '95%':
+            conf_level = float(0.95)
+        elif conf_level == '99%':
+            conf_level = float(0.99)
+
+        # Comprobacióm de errores
+        #  La carpeta no existe
+        if not os.path.exists(path_folder):
+            error_popup('La carpeta seleccionada no existe')
+            can_process = False
+        else:
+            # No hay archivos del traverser en la carpeta. Para evitar errores debe estar dentro del "if".
+            if traverser_files == [] and can_process:
+                error_popup('No hay archivos del traverser cargados')
+                can_process = False
+        #  No se selecciono el archivo de referencia del cero
+        if (cero_file == '' or cero_file == 'No hay archivos CSV') and can_process:
+            error_popup('No se selecciono el archivo de referencia')
+            can_process = False
+        # Verificacion de la configuracion de la relacion Agujero: Toma de Presion
+        if can_process:
+            # Determinacion de que los datos ingresados por layout no tengan tomas repetidas
+            # o no se halla ingresado ningun valor.
+            flag, data_conf = ref_aguj_toma_ok(values)
+            if flag == 1:
+                can_process = False  # NOTA: NO SE ANALIZA SI LAS TOMAS ESTAN DENTRO DEL ARCHIVO DE CALBIRACION YA QUE NO SE PODRIA POR  # LA FORMA EN QUE SE ACTUALIZA EL LISTADO DE TOMAS DISPONIBLES.
+
+        # Calculo de los voltajes de referencia. Ante falla da aviso.
+        if can_process:  # Si no hubo errores se continua. Similar a can_process==True.
+            try:  # Prueba procesar el archivo sino genera mensaje de error.
+                path_cero = path_folder + '/' + cero_file
+                vref = reference_voltage(path_cero)
+            except Exception as e:
+                print(e)
+                vref = []  # Evita tomar valores de una instancia anterior
+                # Aviso de cero no procesable
+                error_popup('El archivo de referencia cero no es procesable')
+                can_process = False
+
+        # Avisa sino es posible grabar los archivos de salida.
+        if can_process:
+            # Prueba grabar el archivo presiones.csv sino genera mensaje de error.
+            try:
+                with open(path_folder + '/presiones.csv', "w", newline='') as f:
+                    writer = csv.writer(f, delimiter=seplist)
+            except Exception as e:
+                print(e)
+                error_popup('El archivo presiones.csv se encuentra abierto, cierrelo e intente de nuevo')
+                can_process = False
+            # Prueba grabar el archivo incertidumbre.csv sino genera mensaje de error.
+            try:
+                with open(path_folder + '/incertidumbre.csv', "w", newline='') as f:
+                    writer = csv.writer(f, delimiter=seplist)
+            except Exception as e:
+                print(e)
+                error_popup('El archivo incertidumbre.csv se encuentra abierto, cierrelo e intente de nuevo')
+                can_process = False
+            # Prueba grabar el archivo traverser-coeficientes.csv sino genera mensaje de error.
+            try:
+                with open(path_folder + '/traverser-coeficientes.csv', "w", newline='') as f:
+                    writer = csv.writer(f, delimiter=seplist)
+            except Exception as e:
+                print(e)
+                error_popup('El archivo traverser-coeficientes.csv se encuentra abierto, cierrelo e intente de nuevo')
+                can_process = False
+            # Prueba grabar el archivo traverser-velocidades.csv sino genera mensaje de error.
+            try:
+                with open(path_folder + '/traverser-velocidades.csv', "w", newline='') as f:
+                    writer = csv.writer(f, delimiter=seplist)
+            except Exception as e:
+                print(e)
+                error_popup('El archivo traverser-velocidades.csv se encuentra abierto, cierrelo e intente de nuevo')
+                can_process = False
+
+        # Listado de los valores de voltaje del autozero. Se activa for el checkbox.
+        if values['-INFO AUTOZERO-'] and can_process:
+            values_vref = []
+            for toma_volt, value in vref.items():
+                values_vref.append(str(toma_volt) + ': {}'.format(round(value, 4)))
+            autozero_popup('\n'.join(values_vref))
+
+        # Si no hay errores se inicia el calculo
+        if can_process:
+            # Armado listado de archivos de calibracion. Se arma el PATH completo
+            file_path_list = []
+            for i in traverser_files:
+                file_path_list.append(path_folder + '/' + i)
+
+            # Procesamiento de los archivos
+            save_pressure = []  # Inicializo variable donde se guardan los datos de presion.
+            save_uncert = []  # Inicializo variable donde se guardan los datos de incertidumbre.
+            save_coef = []  # Inicializo variable donde se guardan los datos de incertidumbre.
+            error_files_list = []  # Inicializo variable donde se guardan los archivos con fallas.
+            # Barra de progreso del calculo
+            window2 = sg.Window('Procesando', [[sg.Text('Procesando ... 0%', key='-PROGRESS VALUE-')], [
+                sg.ProgressBar(len(file_path_list), orientation='horizontal', style='xpnative', size=(20, 20),
+                               k='-PROGRESS-')]], finalize=True)
+            for i in range(len(file_path_list)):
+                data = []  # Reinicio de la variable donde se guardan los datos del CSV.
+                # Actualizacion barra de progreso
+                window2['-PROGRESS-'].update(current_count=i)
+                window2['-PROGRESS VALUE-'].update('Procesando ... {}%'.format(int(((i+1)/len(file_path_list))*100)))
+                # Se abre cada archivo que figura en el listado.
+                with open(file_path_list[i]) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=';')
+                    # Extraigo todas las filas de un archivo y se lo procesa.
+                    for csv_row in csv_reader:
+                        data.append(csv_row)
+                    try:
+                        # Variable buffer que evita informacion redundante en "save_uncert"
+                        # save_buffer_pressure, save_buffer_uncert, save_buffer_calib = data_process(data, vref,
+                        #                                                                            conf_level, values)
+                        save_buffer_pressure, save_buffer_uncert, save_buffer_coef = data_process(data, vref,
+                                                                                                   conf_level, values)
+                        # Union de los datos procesados de cada archivo.
+                        save_pressure.extend(save_buffer_pressure)
+                        save_uncert.extend(save_buffer_uncert)
+                        save_coef.extend(save_buffer_coef)
+                    except Exception as e:
+                        print(e)
+                        error_files_list.append(traverser_files[i])
+            # Se cierra la ventana de progreso
+            window2.close()
+
+            # Guardado de los archivos+
+            # Ventana de aviso de guardado de archivos
+            window2 = sg.Window('', [[sg.Text('Guardando archivos CSV')]], no_titlebar=True, background_color='grey',
+                                finalize=True)
+            save_csv_pressure(save_pressure, path_folder, seplist, decsep)
+            save_csv_incert(save_uncert, conf_level, path_folder, seplist, decsep)
+            save_csv_coef(save_coef, path_folder, seplist, decsep, values)
+            #  Se cierra la ventana de aviso de guardado de archivos
+            window2.close()
+
+            info_popup('Los archivos de salida se guardaron con exito')
+            # Informa los archivos que no pudieron procesarse
+            if error_files_list:
+                error_files_popup('\n'.join(error_files_list))
+            # Agregado del archivo de calibracion a la seccion de graficos.
+            # Se agrega un "event" y se modifica "values" para que se genere el
+            # procesamiento por parte del modulo de graficacion
+            # window['-GRAFARCH-'].update(path_folder + '/calibracion.csv')
+            # event = '-GRAFARCH-'
+            # values['-GRAFARCH-'] = path_folder + '/calibracion.csv'  # Necesario para procesar el archivos
 
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:

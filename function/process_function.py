@@ -1,64 +1,113 @@
 from statistics import mean, stdev
 import scipy.stats as stats
+import math
+
 
 # Se preprocesan los datos inicialmente y luego se determinan las presiones y las incertidumbres
-def data_process(data_csv, vref, nivconf, values):
+def data_process(data_csv, vref, nivconf, interpolat, values):
+    data_out = {}  # Inicializacion variable de guardado de datos del csv procesado
     # --------------Procesamiento de los datos en bruto--------------
     data = []  # Inicializacion variable de guardado de datos del csv procesado
     data_csv.pop(-1)  # Se elimina ultima fila con el caracter #
-    for i in range(len(data_csv)):
-        data_buffer = []  # Reinicio variable de guardado
-        # Procesamiento de los datos de la fila extraida.
-        data_csv[i].pop(-1)  # Se elimina el ultimo elemento con el caracter <
-        data_csv[i].pop(0)  # Se elimina el primer elemento con el caracter M, V, A o B
-        for j in range(len(data_csv[i])):
-            data_buffer.append(float(data_csv[i][j].replace(',', '.')))  # Conversion de string a float.
-        data.append(data_buffer)
-    # ----------------Procesamiento de las presiones y angulos----------------
-    data_pressure = []  # Inicializo la variable de salida.
-    # Agrego X e Y al archivo de presion y encabezado
-    x_posit = ['Posicion X']  # Encabezado alfa
-    x_posit += data[0]  # Agregado datos alfa
-    y_posit = ['Posicion Y']  # Encabezado beta
-    y_posit += data[1]  # Agregado datos beta
-    data_pressure.append(x_posit)  # Agregado de X
-    data_pressure.append(y_posit)  # Agregado de Y
-    # Calculo de las presiones
-    for i in range(1, int(len(data) / 2)):  # Se utiliza la estrategia de que los valores de las tomas vienen en pares
-        # Valor de referencia del sensor analizado.
-        numbsenor = int(data[2 * i][0])
-        V0 = vref["V{}".format(numbsenor)]  # Extraigo del diccionario el valor de referencia.
-        # Calculo las presiones para la toma indicada.
-        # Inicializo la variable donde guardo las presiones junto con el nombre de archivo y el numero de toma.
-        pressure = ["Toma {}".format(numbsenor)]
-        for j in range(1, len(data[2])):
-            Vout = data[i * 2][j]
-            Vs = data[i * 2 + 1][j]
-            value = (((Vout - V0) / (Vs * 0.2)) * 1000)
-            value = float('%.4f' % value)  # Reduccion a 4 cifras
-            pressure.append(value)
-        data_pressure.append(pressure)  # Agregado de datos de presiones
+    # Determinaciòn tipo de formato
+    if data_csv[3][0] == '>T':
+        format = 'B'
+    else:
+        format = 'A'
+    # Calculo de presion para diferentes formatos de datos
+    if format == 'A':
+        for i in range(len(data_csv)):
+            data_buffer = []  # Reinicio variable de guardado
+            # Procesamiento de los datos de la fila extraida.
+            data_csv[i].pop(-1)  # Se elimina el ultimo elemento con el caracter <
+            data_csv[i].pop(0)  # Se elimina el primer elemento con el caracter M, V, X o Y
+            for j in range(len(data_csv[i])):
+                data_buffer.append(float(data_csv[i][j].replace(',', '.')))  # Conversion de string a float.
+            data.append(data_buffer)
+        # ----------------Procesamiento de las presiones y angulos----------------
+        data_pressure = []  # Inicializo la variable de salida.
+        # Agrego la posicion X e Y a los datos
+        data_out.update({'Posicion X': data[0][0], 'Posicion Y': data[1][0]})
+        # Calculo de las presiones
+        for i in range(1, int(len(data) / 2)):
+            # Se utiliza la estrategia de que los valores de las tomas vienen en pares
+            # Valor de referencia del sensor analizado.
+            numbsenor = int(data[2 * i][0])
+            V0 = vref["V{}".format(numbsenor)]  # Extraigo del diccionario el valor de referencia.
+            # Calculo las presiones para la toma indicada.
+            # Inicializo la variable donde guardo las presiones.
+            pressure = []
+            for j in range(1, len(data[2])):
+                Vout = data[i * 2][j]
+                Vs = data[i * 2 + 1][j]
+                value = (((Vout - V0) / (Vs * 0.2)) * 1000) * (1)  # PRESION MODIFICADA <<<--------
+                value = float('%.4f' % value)  # Reduccion a 4 cifras
+                pressure.append(value)
+            # Guardado de datos en variable de salida y en variable local
+            data_out.update({"Presion-Sensor {}".format(numbsenor): pressure})  # Agregado de datos de presiones
+    else:
+        # Agrego la posicion X e Y a los datos
+        data_out.update({'Posicion X': float(data_csv[0][1]), 'Posicion Y': float(data_csv[1][1])})
+        data_csv.pop(1)  # Se elimina la segunda fila con dato de la posicion Y
+        data_csv.pop(0)  # Se elimina la primera fila con dato de la posicion X
+        # Determinacion de los numero de sensores usados
+        header = []
+        for i in range(3, len(data_csv[0]) - 1):
+            header.append(int(data_csv[0][i].replace("toma_", "")))
+        data_csv.pop(0)  # Se elimina el encabezado
+        # Calculo del tiempo en segundos
+        buffer_data = []
+        for i in range(len(data_csv)):
+            time_value = float(data_csv[i][1])
+            buffer_data.append(round(time_value * 1e-6, 4))
+        data_out.update({"Tiempo medicion": buffer_data})  # Agregado de datos de presiones
+        del (time_value)
+        # Basado en la estructura de datos a procesar se obtiene la presion de cada sensor con numero respectivo
+        count = 0  # Contador utilizado para determinar numero de sensor
+        for i in range(3, len(data_csv[0]) - 1):
+            # Valor de referencia del sensor analizado.
+            numbsenor = header[count]
+            V0 = vref["V{}".format(numbsenor)]  # Extraigo del diccionario el valor de referencia.
+            # Se suma el contador ya que se definio el "numbsenor"
+            count += 1
+            # Calculo las presiones para el sensor indicado.
+            # Inicializo la variable donde guardo las presiones.
+            pressure = []
+            for j in range(len(data_csv)):
+                Vout = float(data_csv[j][i].replace(',', '.'))
+                Vs = float(data_csv[j][2].replace(',', '.'))
+                value = (((Vout - V0) / (Vs * 0.2)) * 1000) * (1)  # PRESION MODIFICADA <<<--------
+                value = float('%.4f' % value)  # Reduccion a 4 cifras
+                pressure.append(value)
+            # Guardado de datos en variable de salida y en variable local
+            data_out.update({"Presion-Sensor {}".format(numbsenor): pressure})  # Agregado de datos de presiones
     # --------------Calculo de la incertidumbre--------------
+    # Se determina el numero de tomas de los keys del diccionario "data_out"
+    pressure_list = [k for k in list(data_out.keys()) if 'Presion-Sensor' in k]
     data_uncert = []  # Inicializo la variable de salida.
     crit = 10  # Criterio de contribucion dominante. Se eligio 10 veces superior.
-    for i in range(len(data_pressure)):
-        # Genero encabezado de los datos
-        uncert = [data_pressure[i][0]]  # Inicializo la variable buffer.
+    for i in pressure_list:
         # Extraigo datos numericos.
-        data_raw = data_pressure[i][1:]
+        data_raw = data_out[i]
+        # Numero de toma. Se obtiene del key del diccionario
+        numb_probe = i.replace('Presion-Sensor ','')
         # Calculo de incertidumbre.
-        sample = len(data_raw)  # Numero de muestras.
-        averange = mean(data_raw)  # Estimado de la medicion.
+        # Numero de muestras.
+        sample = len(data_raw)
+        data_out.update({"Muestras-{}".format(numb_probe): sample})
+        # Estimado de la medicion
+        averange = mean(data_raw)
+        data_out.update({"Promedio-{}".format(numb_probe):averange})
         if sample > 1:
-            typea = stdev(data_raw) / (sample ** 0.5)  # Desviación típica experimental.
-            # Se diferencia el calculo del componente Tipo B para los diferentes sensores.
-            # VER QUE INCERTIDUMBRE TIPO B SE COLOCARA PARA POSICION DEL TRAVERSER
-            if data_pressure[i][0] == 'Alfa' or data_pressure[i][0] == 'Beta':
-                typeb = averange * 0.00 / (3 ** 0.5)  # Componente Tipo B debido a la posicion del traverser.
-            else:
-                typeb = averange * 0.015 / (
-                        3 ** 0.5)  # Componente Tipo B debido a la calibración del sensor de presion.
-            ucomb = (typea ** 2 + typeb ** 2) ** 0.5  # Incertidumbre combinada.
+            # Desviación típica experimental.
+            typea = stdev(data_raw) / (sample ** 0.5)
+            data_out.update({"TipoA-{}".format(numb_probe): typea})
+            # Componente Tipo B debido a la calibración del sensor de presion.
+            typeb = averange * 0.015 / (3 ** 0.5)
+            data_out.update({"TipobB-presion-{}".format(numb_probe): typeb})
+            # Incertidumbre combinada.
+            ucomb = (typea ** 2 + typeb ** 2) ** 0.5
+            data_out.update({"Incertidumbre Combinada-{}".format(numb_probe): ucomb})
             # Analisis de la contribucion dominante para la determinacion de la incertidumbre expandida.
             # El siguiente codigo evita la division por cero.
             try:
@@ -70,26 +119,37 @@ def data_process(data_csv, vref, nivconf, values):
             if rel_tipe > crit:
                 k = stats.t.ppf((1 + nivconf) / 2, sample - 1)  # t student doble cola. t.ppf(alfa, gl)
                 distrib = 't-student con {} GL'.format(sample - 1)
+                # Guardado datos
+                data_out.update({"Coeficiente-expansion-{})".format(numb_probe): k})
+                data_out.update({"Tipo-distribucion-{}".format(numb_probe): distrib})
             elif typea / typeb < 1 / crit:
                 k = (3 ** 0.5) * nivconf  # Distribucion rectangular k=raiz(3)*p
                 distrib = 'Rectangular'
+                # Guardado datos
+                data_out.update({"Coeficiente-expansion-{})".format(numb_probe): k})
+                data_out.update({"Tipo-distribucion-{}".format(numb_probe): distrib})
             else:
                 k = stats.norm.ppf((1 + nivconf) / 2)  # Cumple teorema limite central. Distribución Normal.
                 distrib = 'Normal TCLimite'
-            uexpand = k * ucomb  # Incertidumbre expandida
-            # Reduccion de cifras
-            averange = float('%.2f' % averange)
-            uexpand = float('%.4f' % uexpand)
-            k = float('%.4f' % k)
+                # Guardado datos
+                data_out.update({"Coeficiente-expansion-{})".format(numb_probe): k})
+                data_out.update({"Tipo-distribucion-{}".format(numb_probe): distrib})
+            # Incertidumbre expandida
+            uexpand = k * ucomb
+            data_out.update({"Uexpandida ({}%)-{}".format(nivconf * 100, numb_probe): uexpand})
+            # Reduccion de cifras. OMITIDO POR AHORA
+            # averange = float('%.2f' % averange)
+            # uexpand = float('%.4f' % uexpand)
+            # k = float('%.4f' % k)
         else:
-            # En mediciones de un solo valor no es posible calcular la incertidumbre
-            averange = float('%.2f' % averange)
-            uexpand = 'N/A'
-            distrib = 'N/A'
-            k = 'N/A'
-        # Organizo los datos calculados
-        uncert.extend([averange, uexpand, sample, distrib, k])
-        data_uncert.append(uncert)
+            # En mediciones de un solo valor no es posible calcular la incertidumbre. Se aplica N/A a todos los datos
+            data_out.update({"TipoA-{}".format(numb_probe): 'N/A'})
+            data_out.update({"TipoB-presion-{}".format(numb_probe): 'N/A'})
+            data_out.update({"Incertidumbre Combinada-{}".format(numb_probe): 'N/A'})
+            data_out.update({"Coeficiente-expansion-{})".format(numb_probe): 'N/A'})
+            data_out.update({"Tipo-distribucion-{}".format(numb_probe): 'N/A'})
+            data_out.update({"Uexpandida ({}%)-{}".format(nivconf * 100, numb_probe): 'N/A'})
+
     # --------------Calculo de los coeficientes del traverser--------------
     # Informacion sobre el tipo de sonda
     probe_type = values['-TYPEPROBE-']
@@ -97,49 +157,38 @@ def data_process(data_csv, vref, nivconf, values):
     relat_hole_tap = [values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'], values['-NUM5-'],
                       values['-NUM6-'], values['-NUM7-']]
     relat_hole_tap = [x for x in relat_hole_tap if x != '']  # Elimino los valores vacios o agujeros no validos.
-    # Busco la organizacion que poseen los datos respecto al numero de toma. EJ: X Y Toma a Toma b
-    header_data = [data_uncert[i][0] for i in range(len(data_uncert))]
-    # Se determina la relacion entre el "numero de agujero-numero de toma-ubicacion del numero de toma en los datos".
-    relat_hole_tap_data = []
-    for i in range(len(relat_hole_tap)):
-        relat_hole_tap_data.append(int(header_data.index('Toma {}'.format(relat_hole_tap[i]))))
 
-    # # Calculo de los coeficientes del traverser para una sonda de 2 agujeros.
-    # if probe_type == '2 agujeros':
-    #     # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
-    #     hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
-    #                  'pestatic': data_uncert[relat_hole_tap_data[2]][1],
-    #                  'ptotal': data_uncert[relat_hole_tap_data[3]][1]}
-    #     # Calculo de coeficientes
-    #     q = hole_data['ptotal'] - hole_data['pestatic']
-    #     cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
-    #     # Discriminacion en funcion del angulo definido para la calibracion.
-    #     if values['-ALPHA PLANE-']:
-    #         data_coef = [['Angulo', data_uncert[0][1]], ['Cpangulo', cpangle]]
-    #     if values['-BETA PLANE-']:
-    #         data_coef = [['Angulo', data_uncert[1][1]], ['Cpangulo', cpangle]]
+    # Calculo de los coeficientes del traverser para una sonda de 2 agujeros.
+    if probe_type == '2 agujeros':
+        # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
+        hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
+                     'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])]}
+        # Calculo de coeficientes
+        q = 1  # DEBE INGRESARSE MANUALMENTE. A IMPLEMENTAR
+        cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
 
     # Calculo de los coeficientes del traverser para una sonda de 3 agujeros.
     if probe_type == '3 agujeros':
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
-        hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
-                     'hole 3': data_uncert[relat_hole_tap_data[2]][1]}
+        hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
+                     'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])],
+                     'hole 3': data_out["Promedio-{}".format(relat_hole_tap[2])]}
         # Calculo de coeficientes
         pss = mean([hole_data['hole 2'], hole_data['hole 3']])
         denom = hole_data['hole 1'] - pss
         cpangle = (hole_data['hole 3'] - hole_data['hole 2']) / denom
-        # Discriminacion en funcion del angulo definido para la calibracion.
-        if values['-ALPHA PLANE-']:
-            data_coef = [['Angulo', data_uncert[0][1]], ['Cpangulo', cpangle]]
-        if values['-BETA PLANE-']:
-            data_coef = [['Angulo', data_uncert[1][1]], ['Cpangulo', cpangle]]
+        # Guardado de coeficientes
+        data_out.update({"Denom": denom})
+        data_out.update({"Cpangulo": cpangle})
 
     # Calculo de los coeficientes del traverser para una sonda de 5 agujeros.
     if probe_type == '5 agujeros':
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
-        hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
-                     'hole 3': data_uncert[relat_hole_tap_data[2]][1], 'hole 4': data_uncert[relat_hole_tap_data[3]][1],
-                     'hole 5': data_uncert[relat_hole_tap_data[4]][1]}
+        hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
+                     'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])],
+                     'hole 3': data_out["Promedio-{}".format(relat_hole_tap[2])],
+                     'hole 4': data_out["Promedio-{}".format(relat_hole_tap[3])],
+                     'hole 5': data_out["Promedio-{}".format(relat_hole_tap[4])]}
         # Determinacion del agujero con la maxima presion. Se usa para analisis de grandes angulos de flujo.
         max_hole = max(hole_data, key=hole_data.get)
         # Analisis discriminado para grande y bajos angulos de calibracion
@@ -149,61 +198,72 @@ def data_process(data_csv, vref, nivconf, values):
                 # Calculo de coeficientes de calibracion para cuando el agujero 1 tiene la mayor presion. Bajos angulos
                 pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
                 denom = hole_data['hole 1'] - pss
-                cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
-                cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
+                cpalpha = (hole_data['hole 4'] - hole_data['hole 2']) / denom
+                cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
                 zone = 'Zona 1'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 2':
                 # Calculo de coeficientes de calibracion para cuando el agujero 2 tiene
                 # la mayor presion. Agujero 4 en perdida.
                 pss = mean([hole_data['hole 1'], hole_data['hole 3'], hole_data['hole 5']])
                 denom = hole_data['hole 2'] - pss
-                cpalfa = (hole_data['hole 1'] - hole_data['hole 2']) / denom
-                cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
+                cpalpha = (hole_data['hole 1'] - hole_data['hole 2']) / denom
+                cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
                 zone = 'Zona 2'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 3':
                 # Calculo de coeficientes de calibracion para cuando el agujero 3 tiene
                 # la mayor presion. Agujero 5 en perdida.
                 pss = mean([hole_data['hole 1'], hole_data['hole 2'], hole_data['hole 4']])
                 denom = hole_data['hole 3'] - pss
-                cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
-                cpbeta = (hole_data['hole 3'] - hole_data['hole 1']) / denom
+                cpalpha = (hole_data['hole 4'] - hole_data['hole 2']) / denom
+                cpbeta = (hole_data['hole 1'] - hole_data['hole 3']) / denom
                 zone = 'Zona 3'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 4':
                 # Calculo de coeficientes de calibracion para cuando el agujero 4 tiene
                 # la mayor presion. Agujero 2 en perdida.
                 pss = mean([hole_data['hole 1'], hole_data['hole 3'], hole_data['hole 5']])
                 denom = hole_data['hole 4'] - pss
-                cpalfa = (hole_data['hole 4'] - hole_data['hole 1']) / denom
-                cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
+                cpalpha = (hole_data['hole 4'] - hole_data['hole 1']) / denom
+                cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
                 zone = 'Zona 4'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 5':
                 # Calculo de coeficientes de calibracion para cuando el agujero 5 tiene
                 # la mayor presion. Agujero 3 en perdida.
                 pss = mean([hole_data['hole 1'], hole_data['hole 2'], hole_data['hole 4']])
                 denom = hole_data['hole 5'] - pss
-                cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
-                cpbeta = (hole_data['hole 1'] - hole_data['hole 5']) / denom
+                cpalpha = (hole_data['hole 4'] - hole_data['hole 2']) / denom
+                cpbeta = (hole_data['hole 5'] - hole_data['hole 1']) / denom
                 zone = 'Zona 5'
-            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
         else:
             # Bajos angulos de calibracion
             # Calculo de coeficientes.
             pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
             denom = hole_data['hole 1'] - pss
-            cpalfa = (hole_data['hole 4'] - hole_data['hole 2']) / denom
-            cpbeta = (hole_data['hole 3'] - hole_data['hole 5']) / denom
+            cpalpha = (hole_data['hole 4'] - hole_data['hole 2']) / denom
+            cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
             zone = 'N/A '
-            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
+            # Guardado de coeficientes
+            data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
 
-    # Calculo de los coeficientes de calibracion para una sonda de 7 agujeros.
+    # Calculo de los coeficientes de calibracion para una sonda de 7 agujeros. REFORMAR EL CALCULO
     if probe_type == '7 agujeros':
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
-        hole_data = {'hole 1': data_uncert[relat_hole_tap_data[0]][1], 'hole 2': data_uncert[relat_hole_tap_data[1]][1],
-                     'hole 3': data_uncert[relat_hole_tap_data[2]][1], 'hole 4': data_uncert[relat_hole_tap_data[3]][1],
-                     'hole 5': data_uncert[relat_hole_tap_data[4]][1], 'hole 6': data_uncert[relat_hole_tap_data[5]][1],
-                     'hole 7': data_uncert[relat_hole_tap_data[6]][1]}
+        hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
+                     'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])],
+                     'hole 3': data_out["Promedio-{}".format(relat_hole_tap[2])],
+                     'hole 4': data_out["Promedio-{}".format(relat_hole_tap[3])],
+                     'hole 5': data_out["Promedio-{}".format(relat_hole_tap[4])],
+                     'hole 6': data_out["Promedio-{}".format(relat_hole_tap[5])],
+                     'hole 7': data_out["Promedio-{}".format(relat_hole_tap[6])]}
         # Determinacion del agujero con la maxima presion. Se usa para analisis de grandes angulos de flujo.
         max_hole = max(hole_data, key=hole_data.get)
         # Analisis discriminado para grande y bajos angulos de calibracion
@@ -219,9 +279,12 @@ def data_process(data_csv, vref, nivconf, values):
                 cpb = (hole_data['hole 4'] - hole_data['hole 7']) / denom
                 cpc = (hole_data['hole 3'] - hole_data['hole 6']) / denom
                 # Coeficientes alfa y beta
-                cpalfa = cpa + ((cpb - cpc) / denom)
+                cpalpha = cpa + ((cpb - cpc) / denom)
                 cpbeta = (cpb + cpc) / (3 ** 0.5)
                 zone = 'Zona 1'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpa": cpa, "Cpb": cpb, "Cpc": cpc, "Cpalfa": cpalpha, "Cpbeta": cpbeta,
+                                 "Zonamax": zone})
             elif max_hole == 'hole 2':
                 # Calculo de coeficientes de calibracion para cuando el agujero 2 tiene
                 # la mayor presion. Agujeros 4, 5 y 6 en perdida.
@@ -229,6 +292,8 @@ def data_process(data_csv, vref, nivconf, values):
                 cprad = (hole_data['hole 2'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 7'] - hole_data['hole 3']) / denom
                 zone = 'Zona 2'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 3':
                 # Calculo de coeficientes de calibracion para cuando el agujero 3 tiene
                 # la mayor presion. Agujeros 5, 6 y 7 en perdida.
@@ -236,6 +301,8 @@ def data_process(data_csv, vref, nivconf, values):
                 cprad = (hole_data['hole 3'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 2'] - hole_data['hole 4']) / denom
                 zone = 'Zona 3'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 4':
                 # Calculo de coeficientes de calibracion para cuando el agujero 4 tiene
                 # la mayor presion. Agujeros 2, 6 y 7 en perdida.
@@ -243,6 +310,8 @@ def data_process(data_csv, vref, nivconf, values):
                 cprad = (hole_data['hole 4'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 3'] - hole_data['hole 5']) / denom
                 zone = 'Zona 4'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 5':
                 # Calculo de coeficientes de calibracion para cuando el agujero 5 tiene
                 # la mayor presion. Agujeros 2, 3 y 7 en perdida.
@@ -250,6 +319,8 @@ def data_process(data_csv, vref, nivconf, values):
                 cprad = (hole_data['hole 5'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 4'] - hole_data['hole 6']) / denom
                 zone = 'Zona 5'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 6':
                 # Calculo de coeficientes de calibracion para cuando el agujero 6 tiene
                 # la mayor presion. Agujeros 2, 3 y 4 en perdida.
@@ -257,6 +328,8 @@ def data_process(data_csv, vref, nivconf, values):
                 cprad = (hole_data['hole 6'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 5'] - hole_data['hole 7']) / denom
                 zone = 'Zona 6'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 7':
                 # Calculo de coeficientes de calibracion para cuando el agujero 7 tiene
                 # la mayor presion. Agujeros 3, 4 y 5 en perdida.
@@ -264,13 +337,13 @@ def data_process(data_csv, vref, nivconf, values):
                 cprad = (hole_data['hole 7'] - hole_data['hole 1']) / denom
                 cptan = (hole_data['hole 6'] - hole_data['hole 2']) / denom
                 zone = 'Zona 7'
+                # Guardado de coeficientes
+                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             # El paper determina otra nomenclatura para los coeficientes cuando se analiza en forma sectorial.
             # Se toma la direccion radial como alfa y la tangencial como beta. No deberia haber diferencia.
             if cprad:
-                cpalfa = cprad
+                cpalpha = cprad
                 cpbeta = cptan
-            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
         else:
             # Bajos angulos de calibracion
             # Calculo de coeficientes.
@@ -282,15 +355,46 @@ def data_process(data_csv, vref, nivconf, values):
             cpb = (hole_data['hole 4'] - hole_data['hole 7']) / denom
             cpc = (hole_data['hole 3'] - hole_data['hole 6']) / denom
             # Coeficientes alfa y beta
-            cpalfa = cpa + ((cpb - cpc) / denom)
+            cpalpha = cpa + ((cpb - cpc) / denom)
             cpbeta = (cpb + cpc) / (3 ** 0.5)
-            cpest = (pss - hole_data['pestatic']) / denom
-            cptot = (hole_data['hole 1'] - hole_data['ptotal']) / denom
             zone = 'N/A '
-            data_coef = [['X', data_uncert[0][1]], ['Y', data_uncert[1][1]], ['Cpalfa', cpalfa],
-                          ['Cpbeta', cpbeta], ['Zona maxima presion', zone]]
+            data_out.update(
+                {"Denom": denom, "Cpa": cpa, "Cpb": cpb, "Cpc": cpc, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
 
-    # Carga de funciones de interpolacion
+    # --------------Interpolacion de los parametros del flujo--------------
+    # Clasificacion por tipo de sonda
+    if values['-TYPEPROBE-'] == '2 agujeros':
+        None
+    if values['-TYPEPROBE-'] == '3 agujeros':
+        None
+    if values['-TYPEPROBE-'] == '5 agujeros' or values['-TYPEPROBE-'] == '7 agujeros':
+        if values['-MULTIZONE-'] == 'Utilizado':
+            None
+        else:
+            # Descarga de datos para interpolar
+            pres_hole1 = hole_data["hole 1"]
+            pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
+            cpalpha = data_out["Cpalfa"]
+            cpbeta = data_out["Cpbeta"]
+            alpha = interpolat["Alfa-Interp"](cpalpha, cpbeta)[0]
+            alpha = float(alpha)
+            beta = interpolat['Beta-Interp'](cpalpha, cpbeta)[0]
+            beta = float(beta)
+            cpest = interpolat['Cpestatico-Interp'](cpalpha, cpbeta)[0]
+            cpest = float(cpest)
+            cptot = interpolat['Cptotal-Interp'](cpalpha, cpbeta)[0]
+            cptot = float(cptot)
 
+            factor = data_out["Denom"]  # ELIMINAR VARIAIBLE.
+            pest = pss - (pres_hole1 - pss) * cpest
+            ptot = pres_hole1 - (pres_hole1 - pss) * cptot
 
-    return data_pressure, data_uncert, data_coef
+            V = ((2/1.225) * (pres_hole1 - pss) * (1 + cpest - cptot))**0.5
+            Vx = (V * math.cos(alpha*math.pi/180)) * math.cos(beta*math.pi/180)
+            Vy = V * math.sin(alpha*math.pi/180)
+            Vz = - (V * math.cos(alpha*math.pi/180)) * math.sin(beta*math.pi/180)
+            data_out.update(
+                {'Alfa': alpha, 'Beta': beta, 'Presion estatica': pest, 'Presion total': ptot, 'Velocidad': V,
+                 'Vx': Vx, 'Vy': Vy, 'Vz': Vz})
+    return data_out
+

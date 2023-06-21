@@ -226,7 +226,9 @@ while True:
                     angle.append(round(float(calib_data[1][2 * i + 0]), 1))
                     cpangle.append(round(float(calib_data[1][2 * i + 1]), 4))
                 # Carga de funciones de interpolacion
-                angle_interp = interpolate.interp2d(cpangle, angle, kind='cubic', bounds_error=False,
+                angle_interp = interpolate.interp2d(cpangle, angle, kind='cubic', bounds_error=False)
+                # Guardado de datos en variable de diccionario
+                data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Angulo-Interp": angle_interp}
             elif probe_type == '3 agujeros':
                 # Carga de datos de la calibracion para 3 agujeros
                 angle = []
@@ -246,6 +248,10 @@ while True:
                                                             fill_value='nan')
                 cptotal_interp = interpolate.interp2d(cpangle, cptotal, kind='cubic', bounds_error=False,
                                                             fill_value='nan')
+                # Guardado de datos en variable de diccionario
+                data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Cpestatico": cpestat, "Cptotal": cptotal,
+                               "Angulo-Interp": angle_interp, "Cpestatico-Interp": cpestat_interp,
+                               "Cptotal-Interp": cptotal_interp}
             elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
                 # Carga de datos de la calibracion para 5 y 7 agujeros. Tienen los mismos coeficientes.
                 alpha = []
@@ -266,14 +272,14 @@ while True:
                     cptotal.append(round(float(calib_data[1][7 * i + 5]), 4))
                     max_zone.append(calib_data[1][7 * i + 6])
                 # Carga de funciones de interpolacion
-                alfa_interp = interpolate.interp2d(cpalpha, cpbeta, alpha, kind='cubic', bounds_error=False,
-                                                         fill_value='nan')
-                beta_interp = interpolate.interp2d(cpalpha, cpbeta, beta, kind='cubic', bounds_error=False,
-                                                         fill_value='nan')
-                cpestat_interp = interpolate.interp2d(cpalpha, cpbeta, cpestat, kind='cubic', bounds_error=False,
-                                                            fill_value='nan')
-                cptotal_interp = interpolate.interp2d(cpalpha, cpbeta, cptotal, kind='cubic', bounds_error=False,
-                                                            fill_value='nan')
+                alfa_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, alpha, w=None, kx=3, ky=3, s=None, eps=1e-16)
+                beta_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, beta, w=None, kx=3, ky=3, s=None, eps=1e-16)
+                cpestat_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, cpestat, w=None, kx=3, ky=3, s=None, eps=1e-16)
+                cptotal_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, cptotal, w=None, kx=3, ky=3, s=None, eps=1e-16)
+                # Guardado de datos en variable de diccionario
+                data_calibr = {'Alfa': alpha, "Beta": beta, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Cpestatico": cpestat,
+                               "Cptotal": cptotal, "Alfa-Interp": alfa_interp, "Beta-Interp": beta_interp,
+                               "Cpestatico-Interp": cpestat_interp, "Cptotal-Interp": cptotal_interp}
             else:
                 # Sino falla durante la carga del archivo pero el dato del tipo de sonda es erroneo
                 # se filta en esta estancia. Se actualiza el layout de la misma forma que fallara la carga.
@@ -397,7 +403,7 @@ while True:
         if not traverser_files:
             # Como no hay archivos del traverser se desactivan los botones de configuracion de sonda y se eliminan
             # los valores de las listas de tomas de los COMBO en la sección "relación Agujero: Toma de presion".
-            window['-STATUS-'].update('No hay archivos de calibracion')
+            window['-STATUS-'].update('No hay archivos del traverser')
             window['-CARGCONF-'].update(disabled=True)
             window['-GUARDCONF-'].update(disabled=True)
             window['-NUM1-'].update(values=[])
@@ -661,9 +667,7 @@ while True:
                 file_path_list.append(path_folder + '/' + i)
 
             # Procesamiento de los archivos
-            save_pressure = []  # Inicializo variable donde se guardan los datos de presion.
-            save_uncert = []  # Inicializo variable donde se guardan los datos de incertidumbre.
-            save_coef = []  # Inicializo variable donde se guardan los datos de incertidumbre.
+            save_data = []  # Inicializo variable donde se guardan los datos.
             error_files_list = []  # Inicializo variable donde se guardan los archivos con fallas.
             # Barra de progreso del calculo
             window2 = sg.Window('Procesando', [[sg.Text('Procesando ... 0%', key='-PROGRESS VALUE-')], [
@@ -682,27 +686,24 @@ while True:
                         data.append(csv_row)
                     try:
                         # Variable buffer que evita informacion redundante en "save_uncert"
-                        # save_buffer_pressure, save_buffer_uncert, save_buffer_calib = data_process(data, vref,
-                        #                                                                            conf_level, values)
-                        save_buffer_pressure, save_buffer_uncert, save_buffer_coef = data_process(data, vref,
-                                                                                                   conf_level, values)
+                        data_calc = data_process(data, vref, conf_level, data_calibr, values)
+
                         # Union de los datos procesados de cada archivo.
-                        save_pressure.extend(save_buffer_pressure)
-                        save_uncert.extend(save_buffer_uncert)
-                        save_coef.extend(save_buffer_coef)
+                        save_data.append(data_calc)
                     except Exception as e:
                         print(e)
-                        error_files_list.append(traverser_files[i])
+                        error_files_list.append(file_path_list[i])
             # Se cierra la ventana de progreso
             window2.close()
 
-            # Guardado de los archivos+
+            # Guardado de los archivos
             # Ventana de aviso de guardado de archivos
             window2 = sg.Window('', [[sg.Text('Guardando archivos CSV')]], no_titlebar=True, background_color='grey',
                                 finalize=True)
-            save_csv_pressure(save_pressure, path_folder, seplist, decsep)
-            save_csv_incert(save_uncert, conf_level, path_folder, seplist, decsep)
-            save_csv_coef(save_coef, path_folder, seplist, decsep, values)
+            save_csv_pressure(save_data, path_folder, seplist, decsep)
+            save_csv_uncert(save_data, conf_level, path_folder, seplist, decsep)
+            save_csv_coef(save_data, path_folder, seplist, decsep, values)
+            save_csv_flow(save_data, path_folder, seplist, decsep, values)
             #  Se cierra la ventana de aviso de guardado de archivos
             window2.close()
 

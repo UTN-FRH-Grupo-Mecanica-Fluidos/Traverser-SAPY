@@ -46,10 +46,22 @@ def list_tomas(files):
         for csv_row in csv_reader:
             data_row.append(csv_row)
     data_row.pop(-1)  # Se elimina ultima fila con el caracter #
-    # Se extraen los numeros de las tomas usadas, se omite las filas con valores de los angulos.
-    tomas = []
-    for i in range(2, len(data_row)):
-        tomas.append(data_row[i][1])
-    # Elimino los valoes repetidos
-    tomas = [i for n, i in enumerate(tomas) if i not in tomas[:n]]
+    # Se determina el formato de datos
+    if data_row[3][0] == '>T':
+        format = 'B'
+    else:
+        format = 'A'
+    # Calculo de presion para diferentes formatos de datos
+    if format == 'A':
+        # Se extraen los numeros de las tomas usadas, se omite las filas con valores de los angulos.
+        tomas = []
+        for i in range(2, len(data_row)):
+            tomas.append(data_row[i][1])
+        # Elimino los valoes repetidos
+        tomas = [i for n, i in enumerate(tomas) if i not in tomas[:n]]
+    else:
+        tomas = []
+        for i in range(3, len(data_row[2]) - 1):
+            tomas.append(data_row[2][i].replace("toma_", ""))
     return tomas
+

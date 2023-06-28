@@ -177,6 +177,10 @@ def reference_voltage(path):
 def save_csv_pressure(save_pressure, path, seplist, decsep):
     # Listado de variables a guardar. Se analiza los keys del primer diccionario unicamente.
     pressure_list = ['Posicion X', 'Posicion Y']
+    # Si existe la variable tiempo se incorpora
+    if 'Tiempo medicion' in list(save_pressure[0].keys()):
+        pressure_list.extend(['Tiempo medicion'])
+    # Agregado de los sensores en la lista.
     pressure_list.extend([k for k in list(save_pressure[0].keys()) if 'Presion-Sensor' in k])
     pressure_list.sort()
     buffer = []  # Guardado de variable buffer

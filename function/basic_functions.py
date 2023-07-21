@@ -68,6 +68,8 @@ def ref_aguj_toma_ok(values):
     return flag, data_conf
 
 
+# -------------------------Funciones de manejo del listado de archivos-------------------------
+
 # La funcion toma el listado de archivos de calibracion y los organiza de menor a mayor en funcion de alfa y beta
 def sort_files_travers(travers_files_in):
     # Se extrae del nombre de los archivo del traverser los valores de X e Y.
@@ -77,9 +79,11 @@ def sort_files_travers(travers_files_in):
     for i in range(len(travers_files_in)):
         # Se usa el caracter "_" para dividir el nombre del archivo.
         buffer = travers_files_in[i].split('_')
+        # Si el archivo es similar al traverser pero tiene estructura de nombre diferente se elimina
         x_buffer.append(int(buffer[3]))
         y_buffer.append(int(buffer[5]))
         list_buffer.append(int(i))
+
     # Usando las funciones SORTED y ZIP se organiza de menor a mayor X e Y al mismo tiempo.
     # Se usa la variable "ist" para determinar el orden nuevo del listado de archivos de calibracion.
     # Web eplicativa: https://es.stackoverflow.com/questions/443252/c%C3%B3mo-ordenar-dos-listas-al-mismo-tiempo-en-python
@@ -175,34 +179,29 @@ def reference_voltage(path):
 
 # -------------------------Guardados de archivos CSV-------------------------
 def save_csv_pressure(save_pressure, path, seplist, decsep):
-    # Listado de variables a guardar. Se analiza los keys del primer diccionario unicamente.
-    pressure_list = ['Posicion X', 'Posicion Y']
+    # Listado de variables a guardar.
+    header_list = ['Posicion X', 'Posicion Y']
     # Si existe la variable tiempo se incorpora
     if 'Tiempo medicion' in list(save_pressure[0].keys()):
-        pressure_list.extend(['Tiempo medicion'])
-    # Agregado de los sensores en la lista.
-    pressure_list.extend([k for k in list(save_pressure[0].keys()) if 'Presion-Sensor' in k])
-    pressure_list.sort()
+        header_list.extend(['Tiempo medicion'])
+    # Agregado de los sensores en la lista. Se analiza los keys del primer diccionario unicamente.
+    header_list.extend([k for k in list(save_pressure[0].keys()) if 'Presion-Sensor' in k])
+    header_list.sort()
     buffer = []  # Guardado de variable buffer
     # Grabado de los datos obtenidos.
     with open(path + '/presiones.csv', "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
+        writer.writerow(["Valores de Presion de los sensores en Pascales"])  # Nota del tipo de archivo
+        writer.writerow(header_list)  # Encabezado de datos
+        key_list = header_list[2:]  # Listado de keys wue tienen un listado de valores. En general presiones y el tiempo
+        # Se toma el primer elemento de "key_list" para determinar la longitud de la listas de presiones o tiempo
         for i in range(len(save_pressure)):
-            for j in range(len(pressure_list)):
-                buffer = [pressure_list[j]]
-                temp = save_pressure[i][pressure_list[j]]
-                # La forma de armar los datos varia dependiendo si es una lista o solo un valor unico.
-                if isinstance(temp, list):
-                    # Convierto los decimales al formato elegido.
-                    temp = [str(temp[i]).replace('.', decsep) for i in range(len(temp))]
-                    buffer.extend(temp)
-                else:
-                    temp = str(temp).replace('.', decsep)
-                    buffer.append(temp)
+            for j in range(len(save_pressure[i][key_list[1]])):
+                buffer = [save_pressure[i]['Posicion X'], save_pressure[i]['Posicion Y']]
+                buffer.extend([save_pressure[i][k][j] for k in key_list])
+                buffer = [str(data).replace('.', decsep) for data in buffer]
                 writer.writerow(buffer)
-            writer.writerow(['##########' for i in range(len(buffer))])  # Division entre puntos del traverser
     f.close()  # Cerrado del archivo CSV
-
 
 def save_csv_uncert(save_uncert, conf_level, path, seplist, decsep):
     # Encabezado
@@ -271,12 +270,14 @@ def save_csv_uncert(save_uncert, conf_level, path, seplist, decsep):
     f.close()  # Cerrado del archivo CSV
 
 
-def save_csv_coef(data_calib, path, seplist, decsep, values):
+def save_csv_trav(data_calib, path, seplist, decsep, values):
     # Encabezado
     header = ['', 'Promedio']
     # Grabado de los datos obtenidos.
-    with open(path + '/traverser-coeficientes.csv', "w", newline='') as f:
+    with open(path + '/traverser.csv', "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
+        # Nota del tipo de archivo
+        writer.writerow(["Datos utilizados en el procesamiento del traverser"])
         # Informacion del tipo de sonda
         writer.writerow(['Tipo de sonda: ', values['-TYPEPROBE-']])
         # Informacion si se utiliza el analisis sectorizado
@@ -286,114 +287,106 @@ def save_csv_coef(data_calib, path, seplist, decsep, values):
         else:
             if values['-MULTIZONE-'] == 'Utilizado':
                 writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
-                writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
             else:
                 writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
-                writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-        # Guardado de datos
-        for i in range(len(data_calib)):
-            buffer = []  # Reinicio de la variable. Guarda temporalmente los datos antes de pasarlo al CSV.
-            if values['-TYPEPROBE-'] == '2 agujeros':
-                None
-            if values['-TYPEPROBE-'] == '3 agujeros':
-                None
-            if values['-TYPEPROBE-'] == '5 agujeros' or values['-TYPEPROBE-'] == '7 agujeros':
-                x_posit = str(data_calib[i]['Posicion X']).replace('.', decsep)
-                writer.writerow(['Posicion X', x_posit])  # Guardado del punto X
-                y_posit = str(data_calib[i]['Posicion Y']).replace('.', decsep)
-                writer.writerow(['Posicion Y', y_posit])  # Guardado del punto Y
-                writer.writerow(header)  # Guardado del encabezado
-                # ---Guardado de Cpalfa---
-                buffer = ['Cpalfa', data_calib[i]['Cpalfa']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+
+        # Guardado de los datos de los coeficientes
+        if values['-TYPEPROBE-'] == '2 agujeros':
+            None
+        elif values['-TYPEPROBE-'] == '3 agujeros':
+            None
+        elif values['-TYPEPROBE-'] == '5 agujeros':
+            # Encabezado de los datos
+            header_list = ['Posicion X', 'Posicion Y', "Agujero 1 [Pa]", "Agujero 2 [Pa]", "Agujero 3 [Pa]",
+                           "Agujero 4 [Pa]", "Agujero 5 [Pa]", "Cp Alfa []", "Cp Beta []", "Zona Maxima", 'Alfa [º]',
+                           'Beta [º]', 'Presion estatica [Pa]', "Presion total [Pa]",'Velocidad [m/seg]',
+                           'Velocidad X [m/seg]', 'Velocidad Y [m/seg]', 'Velocidad Z [m/seg]']
+            writer.writerow(header_list)
+            for i in range(len(data_calib)):
+                # Listado de Keys a guardar.
+                key_list = ['Posicion X','Posicion Y', "hole 1", "hole 2", "hole 3", "hole 4", "hole 5", "Cpalfa",
+                            'Cpbeta','Zonamax', 'Alfa', 'Beta', 'Presion estatica', "Presion total",'Velocidad',
+                            "Vx", "Vy", "Vx"]
+                buffer = [data_calib[i][j] for j in key_list]  # Armo lista de valores con "key_list"
+                buffer = [str(data).replace('.', decsep) for data in buffer]  # Conversion a formato de salida CSV
                 writer.writerow(buffer)
-                # ---Guardado de Cpbeta---
-                buffer = ['Cpbeta', data_calib[i]['Cpbeta']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Zona max---
-                buffer = ['Zona maxima', data_calib[i]['Zonamax']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
+        elif values['-TYPEPROBE-'] == '7 agujeros':
+            None
     f.close()  # Cerrado del archivo CSV
 
-
-def save_csv_flow(data_flow, path, seplist, decsep, values):
-    # Encabezado
-    header = ['', 'Promedio']
-    with open(path + '/traverser-velocidades.csv', "w", newline='') as f:
-        writer = csv.writer(f, delimiter=seplist)
-        # Informacion del tipo de sonda
-        writer.writerow(['Tipo de sonda: ', values['-TYPEPROBE-']])
-        # Informacion si se utiliza el analisis sectorizado
-        if values['-TYPEPROBE-'] == '2 agujeros' or values['-TYPEPROBE-'] == '3 agujeros':
-            # Sonda de 2 y 3 agujeros no tiene analisis sectorizado.
-            writer.writerow(['Analisis Sectorizado: ', 'No Aplica'])
-        else:
-            if values['-MULTIZONE-'] == 'Utilizado':
-                writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
-                writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-            else:
-                writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
-                writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-        for i in range(len(data_flow)):
-            buffer = []  # Reinicio de la variable. Guarda temporalmente los datos antes de pasarlo al CSV.
-            if values['-TYPEPROBE-'] == '2 agujeros':
-                None
-            if values['-TYPEPROBE-'] == '3 agujeros':
-                None
-            if values['-TYPEPROBE-'] == '5 agujeros' or values['-TYPEPROBE-'] == '7 agujeros':
-                x_posit = str(data_flow[i]['Posicion X']).replace('.', decsep)
-                writer.writerow(['Posicion X', x_posit])  # Guardado del punto X
-                y_posit = str(data_flow[i]['Posicion Y']).replace('.', decsep)
-                writer.writerow(['Posicion Y', y_posit])  # Guardado del punto Y
-                writer.writerow(header)  # Guardado del encabezado
-                # ---Guardado de Alfa---
-                buffer = ['Alfa', str(data_flow[i]['Alfa'])]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Beta---
-                buffer = ['Beta', data_flow[i]['Beta']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Presion estatica---
-                buffer = ['Presion estatica', data_flow[i]['Presion estatica']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Presion total---
-                buffer = ['Presion total', data_flow[i]['Presion total']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Velocidad---
-                buffer = ['Velocidad', data_flow[i]['Velocidad']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Velocidad en X---
-                buffer = ['Velocidad X', data_flow[i]['Vx']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Velocidad en Y---
-                buffer = ['Velocidad Y', data_flow[i]['Vy']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                # ---Guardado de Velocidad en X---
-                buffer = ['Velocidad Z', data_flow[i]['Vz']]
-                # Convierto los decimales al formato elegido.
-                buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-                writer.writerow(buffer)
-                writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-    f.close()  # Cerrado del archivo CSV
+# ELIMINAR FUNCION
+# def save_csv_flow(data_flow, path, seplist, decsep, values):
+#     # Encabezado
+#     header = ['', 'Promedio']
+#     with open(path + '/traverser-velocidades.csv', "w", newline='') as f:
+#         writer = csv.writer(f, delimiter=seplist)
+#         # Informacion del tipo de sonda
+#         writer.writerow(['Tipo de sonda: ', values['-TYPEPROBE-']])
+#         # Informacion si se utiliza el analisis sectorizado
+#         if values['-TYPEPROBE-'] == '2 agujeros' or values['-TYPEPROBE-'] == '3 agujeros':
+#             # Sonda de 2 y 3 agujeros no tiene analisis sectorizado.
+#             writer.writerow(['Analisis Sectorizado: ', 'No Aplica'])
+#         else:
+#             if values['-MULTIZONE-'] == 'Utilizado':
+#                 writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
+#                 writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
+#             else:
+#                 writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
+#                 writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
+#         for i in range(len(data_flow)):
+#             buffer = []  # Reinicio de la variable. Guarda temporalmente los datos antes de pasarlo al CSV.
+#             if values['-TYPEPROBE-'] == '2 agujeros':
+#                 None
+#             if values['-TYPEPROBE-'] == '3 agujeros':
+#                 None
+#             if values['-TYPEPROBE-'] == '5 agujeros' or values['-TYPEPROBE-'] == '7 agujeros':
+#                 x_posit = str(data_flow[i]['Posicion X']).replace('.', decsep)
+#                 writer.writerow(['Posicion X', x_posit])  # Guardado del punto X
+#                 y_posit = str(data_flow[i]['Posicion Y']).replace('.', decsep)
+#                 writer.writerow(['Posicion Y', y_posit])  # Guardado del punto Y
+#                 writer.writerow(header)  # Guardado del encabezado
+#                 # ---Guardado de Alfa---
+#                 buffer = ['Alfa', str(data_flow[i]['Alfa'])]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Beta---
+#                 buffer = ['Beta', data_flow[i]['Beta']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Presion estatica---
+#                 buffer = ['Presion estatica', data_flow[i]['Presion estatica']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Presion total---
+#                 buffer = ['Presion total', data_flow[i]['Presion total']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Velocidad---
+#                 buffer = ['Velocidad', data_flow[i]['Velocidad']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Velocidad en X---
+#                 buffer = ['Velocidad X', data_flow[i]['Vx']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Velocidad en Y---
+#                 buffer = ['Velocidad Y', data_flow[i]['Vy']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 # ---Guardado de Velocidad en X---
+#                 buffer = ['Velocidad Z', data_flow[i]['Vz']]
+#                 # Convierto los decimales al formato elegido.
+#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+#                 writer.writerow(buffer)
+#                 writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
+#     f.close()  # Cerrado del archivo CSV
 
 
 # -------------------------Funciones de Graficacion y Guardado de Graficos-------------------------

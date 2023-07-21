@@ -382,20 +382,12 @@ while True:
             window['-STATUS-'].update('No hay archivos del traverser')
         # Busca en la carpeta de trabajo los archivos que sean solo CSV.
         fnames = [f for f in file_list if os.path.isfile(os.path.join(path_folder, f)) and f.lower().endswith(".csv")]
-        # Elimina del analisis los archivos de salida.
-        if "presiones.csv" in fnames:
-            fnames.remove("presiones.csv")
-        if "incertidumbre.csv" in file_list:
-            fnames.remove("incertidumbre.csv")
-        if "traverser-coeficientes.csv" in file_list:
-            fnames.remove("traverser-coeficientes.csv")
-        if "traverser-velocidades.csv" in file_list:
-            fnames.remove("traverser-velocidades.csv")
         # Clasificacion de los archivos CSV en los del traverser y cero
         traverser_files = []
         zero_files = []
         for clasif_names in fnames:
-            if "XY_SapySync_X" in clasif_names:
+            # Si el archivo empieza como "XY_SapySync_X" se lo considera del traverser
+            if clasif_names.startswith("XY_SapySync_X"):
                 traverser_files.append(clasif_names)
             else:
                 zero_files.append(clasif_names)
@@ -603,7 +595,8 @@ while True:
             # o no se halla ingresado ningun valor.
             flag, data_conf = ref_aguj_toma_ok(values)
             if flag == 1:
-                can_process = False  # NOTA: NO SE ANALIZA SI LAS TOMAS ESTAN DENTRO DEL ARCHIVO DE CALBIRACION YA QUE NO SE PODRIA POR  # LA FORMA EN QUE SE ACTUALIZA EL LISTADO DE TOMAS DISPONIBLES.
+                can_process = False
+                # NOTA: NO SE ANALIZA SI LAS TOMAS ESTAN DENTRO DEL ARCHIVO DE CALBIRACION YA QUE NO SE PODRIA POR  # LA FORMA EN QUE SE ACTUALIZA EL LISTADO DE TOMAS DISPONIBLES.
 
         # Calculo de los voltajes de referencia. Ante falla da aviso.
         if can_process:  # Si no hubo errores se continua. Similar a can_process==True.
@@ -621,35 +614,30 @@ while True:
         if can_process:
             # Prueba grabar el archivo presiones.csv sino genera mensaje de error.
             try:
-                with open(path_folder + '/presiones.csv', "w", newline='') as f:
-                    writer = csv.writer(f, delimiter=seplist)
+                f = open(path_folder + '/' + 'Resultados' + '/presiones.csv', "w")
+                f.writable()
+                f.close()
             except Exception as e:
                 print(e)
                 error_popup('El archivo presiones.csv se encuentra abierto, cierrelo e intente de nuevo')
                 can_process = False
             # Prueba grabar el archivo incertidumbre.csv sino genera mensaje de error.
             try:
-                with open(path_folder + '/incertidumbre.csv', "w", newline='') as f:
-                    writer = csv.writer(f, delimiter=seplist)
+                f = open(path_folder + '/' + 'Resultados' + '/incertidumbre.csv', "w")
+                f.writable()
+                f.close()
             except Exception as e:
                 print(e)
                 error_popup('El archivo incertidumbre.csv se encuentra abierto, cierrelo e intente de nuevo')
                 can_process = False
             # Prueba grabar el archivo traverser-coeficientes.csv sino genera mensaje de error.
             try:
-                with open(path_folder + '/traverser-coeficientes.csv', "w", newline='') as f:
-                    writer = csv.writer(f, delimiter=seplist)
+                f = open(path_folder + '/' + 'Resultados' + '/traverser.csv', "w")
+                f.writable()
+                f.close()
             except Exception as e:
                 print(e)
-                error_popup('El archivo traverser-coeficientes.csv se encuentra abierto, cierrelo e intente de nuevo')
-                can_process = False
-            # Prueba grabar el archivo traverser-velocidades.csv sino genera mensaje de error.
-            try:
-                with open(path_folder + '/traverser-velocidades.csv', "w", newline='') as f:
-                    writer = csv.writer(f, delimiter=seplist)
-            except Exception as e:
-                print(e)
-                error_popup('El archivo traverser-velocidades.csv se encuentra abierto, cierrelo e intente de nuevo')
+                error_popup('El archivo traverser.csv se encuentra abierto, cierrelo e intente de nuevo')
                 can_process = False
 
         # Listado de los valores de voltaje del autozero. Se activa for el checkbox.
@@ -673,26 +661,30 @@ while True:
             window2 = sg.Window('Procesando', [[sg.Text('Procesando ... 0%', key='-PROGRESS VALUE-')], [
                 sg.ProgressBar(len(file_path_list), orientation='horizontal', style='xpnative', size=(20, 20),
                                k='-PROGRESS-')]], finalize=True)
+            # Creacion/verificacion de carpeta "Resultados"
+            if not os.path.isdir(path_folder + '/' + 'Resultados'):
+                os.mkdir(path_folder + '/' + 'Resultados')
+
             for i in range(len(file_path_list)):
                 data = []  # Reinicio de la variable donde se guardan los datos del CSV.
                 # Actualizacion barra de progreso
                 window2['-PROGRESS-'].update(current_count=i)
                 window2['-PROGRESS VALUE-'].update('Procesando ... {}%'.format(int(((i+1)/len(file_path_list))*100)))
-                # Se abre cada archivo que figura en el listado.
-                with open(file_path_list[i]) as csv_file:
-                    csv_reader = csv.reader(csv_file, delimiter=';')
-                    # Extraigo todas las filas de un archivo y se lo procesa.
-                    for csv_row in csv_reader:
-                        data.append(csv_row)
-                    try:
-                        # Variable buffer que evita informacion redundante en "save_uncert"
+                # Si existe error por faltante de archivos o problema al procesar se guarda en un listado y avisa.
+                try:
+                    # Se abre cada archivo que figura en el listado.
+                    with open(file_path_list[i]) as csv_file:
+                        csv_reader = csv.reader(csv_file, delimiter=';')
+                        # Extraigo todas las filas de un archivo y se lo procesa.
+                        for csv_row in csv_reader:
+                            data.append(csv_row)
+                        # Procesamiento de los datos
                         data_calc = data_process(data, vref, conf_level, data_calibr, values)
-
                         # Union de los datos procesados de cada archivo.
                         save_data.append(data_calc)
-                    except Exception as e:
-                        print(e)
-                        error_files_list.append(file_path_list[i])
+                except Exception as e:
+                    print(e)
+                    error_files_list.append(file_path_list[i])
             # Se cierra la ventana de progreso
             window2.close()
 
@@ -700,14 +692,22 @@ while True:
             # Ventana de aviso de guardado de archivos
             window2 = sg.Window('', [[sg.Text('Guardando archivos CSV')]], no_titlebar=True, background_color='grey',
                                 finalize=True)
-            save_csv_pressure(save_data, path_folder, seplist, decsep)
-            save_csv_uncert(save_data, conf_level, path_folder, seplist, decsep)
-            save_csv_coef(save_data, path_folder, seplist, decsep, values)
-            save_csv_flow(save_data, path_folder, seplist, decsep, values)
+            # Path de guardado de resultados
+            try:
+                path_save = path_folder + '/' + 'Resultados'
+                save_csv_pressure(save_data, path_save, seplist, decsep)
+                save_csv_uncert(save_data, conf_level, path_save, seplist, decsep)
+                save_csv_trav(save_data, path_save, seplist, decsep, values)
+                info_popup('Los archivos de salida se guardaron con exito')
+            except Exception as e:
+                print(e)
+                info_popup('Existen problemas en el guardado de los archivos de salida')
+                error_files_list.append(file_path_list[i])
+
             #  Se cierra la ventana de aviso de guardado de archivos
             window2.close()
 
-            info_popup('Los archivos de salida se guardaron con exito')
+
             # Informa los archivos que no pudieron procesarse
             if error_files_list:
                 error_files_popup('\n'.join(error_files_list))

@@ -163,6 +163,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
         hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
                      'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])]}
+        data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
         # Calculo de coeficientes
         q = 1  # DEBE INGRESARSE MANUALMENTE. A IMPLEMENTAR
         cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
@@ -173,6 +174,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
         hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
                      'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])],
                      'hole 3': data_out["Promedio-{}".format(relat_hole_tap[2])]}
+        data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
         # Calculo de coeficientes
         pss = mean([hole_data['hole 2'], hole_data['hole 3']])
         denom = hole_data['hole 1'] - pss
@@ -189,6 +191,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                      'hole 3': data_out["Promedio-{}".format(relat_hole_tap[2])],
                      'hole 4': data_out["Promedio-{}".format(relat_hole_tap[3])],
                      'hole 5': data_out["Promedio-{}".format(relat_hole_tap[4])]}
+        data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
         # Determinacion del agujero con la maxima presion. Se usa para analisis de grandes angulos de flujo.
         max_hole = max(hole_data, key=hole_data.get)
         # Analisis discriminado para grande y bajos angulos de calibracion
@@ -264,6 +267,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                      'hole 5': data_out["Promedio-{}".format(relat_hole_tap[4])],
                      'hole 6': data_out["Promedio-{}".format(relat_hole_tap[5])],
                      'hole 7': data_out["Promedio-{}".format(relat_hole_tap[6])]}
+        data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
         # Determinacion del agujero con la maxima presion. Se usa para analisis de grandes angulos de flujo.
         max_hole = max(hole_data, key=hole_data.get)
         # Analisis discriminado para grande y bajos angulos de calibracion
@@ -385,14 +389,13 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
             cptot = interpolat['Cptotal-Interp'](cpalpha, cpbeta)[0]
             cptot = float(cptot)
 
-            factor = data_out["Denom"]  # ELIMINAR VARIAIBLE.
             pest = pss - (pres_hole1 - pss) * cpest
             ptot = pres_hole1 - (pres_hole1 - pss) * cptot
-
-            V = ((2/1.225) * (pres_hole1 - pss) * (1 + cpest - cptot))**0.5
+            density = 1.225  # Unidades en SI
+            V = ((2/density) * (pres_hole1 - pss) * (1 + cpest - cptot))**0.5
             Vx = (V * math.cos(alpha*math.pi/180)) * math.cos(beta*math.pi/180)
             Vy = V * math.sin(alpha*math.pi/180)
-            Vz = - (V * math.cos(alpha*math.pi/180)) * math.sin(beta*math.pi/180)
+            Vz = (V * math.cos(alpha*math.pi/180)) * math.sin(beta*math.pi/180)
             data_out.update(
                 {'Alfa': alpha, 'Beta': beta, 'Presion estatica': pest, 'Presion total': ptot, 'Velocidad': V,
                  'Vx': Vx, 'Vy': Vy, 'Vz': Vz})

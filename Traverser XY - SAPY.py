@@ -21,6 +21,25 @@ icon_bytes = base64.b64decode(icon)
 # Layout Theme
 sg.theme('SystemDefaultForReal')
 
+# Ventana de calculo de densidad
+def density_calc():
+    layout_density = [[sg.T("Presion Atmosferica Absoluta [Pa]")],
+                      [sg.I("", justification="center", k="-ATM_PRESSURE-", s=8),
+                       sg.T("±"), sg.I("0", justification="center", k="-ATM_PRESSURE_UNCERT-", s=8, disabled=True,
+                                       tooltip="No Implementado")],
+                      [sg.T("Temperatura [ºC]")],
+                      [sg.I("", justification="center", k="-TEMP-", s=5,), sg.T("±"),
+                       sg.I("0", justification="center", k="-TEMP_UNCERT-", s=5, disabled=True,
+                            tooltip="No Implementado")],
+                      [sg.T("Humedad Relativa [%]")],
+                      [sg.I("", justification="center", k="-REL_HUMIDITY-",s=5), sg.T("±"),
+                       sg.I("0", justification="center", k="-REL_HUMIDITY_UNCERT-", s=5, disabled=True,
+                            tooltip="No Implementado")],
+                      [sg.B("Aceptar", k="-ACCEPT_DENSITY-", pad=(8,8)), sg.B("Cancelar", k="-CANCEL_DENSITY-")]]
+    return sg.Window("Calculo densidad del aire", layout_density, resizable=False, icon=icon_bytes,
+                    finalize=True, keep_on_top = True, disable_close = True)
+
+
 # -----------------------------------Columna Izquierda-----------------------------------
 # Frame archivo de calibracion
 # Informacion min-max de alfa y beta y Analisis Multi-Zona
@@ -65,10 +84,15 @@ frame_format_CSV = [
 
 # Logo, nivel de confianza, boton procesar y salir
 col_b1 = [[sg.Image(source=logo, subsample=3, tooltip='Laboratorio de Aerodinamica y Fluidos')]]
-col_b2 = [[sg.Text('Nivel de confianza:'),
-           sg.Combo(values=['68%', '95%', '99%'], key='-NIVCONF-', default_value=['95%'], s=(5, 1), readonly=True,
-                    background_color='white')], [
-              sg.Button('Procesar', key='-PROCESS-', enable_events=True, font=("Arial", 11), size=(9, 1),
+col_b2 = [[sg.T("Densidad [Kg/m3]", justification="left"), sg.B("Calcular", s=12, k="-CALC_DENSITY-")],
+          [sg.I('', s=7, justification="center", p=(0, 8), k="-DENSITY_VALUE-"),
+           sg.T("±"),
+           sg.I('0.0000', s=6, justification="center", k="-DENSITY_VALUE_UNCERT-",readonly=True,
+                tooltip="No Implementado")],
+          [sg.Text('Nivel de confianza:'), sg.Combo(values=['68%', '95%', '99%'], key='-NIVCONF-',
+                                                    default_value=['95%'], s=(5, 1), readonly=True,
+                                                    background_color='white')],
+          [sg.Button('Procesar', key='-PROCESS-', enable_events=True, font=("Arial", 11), size=(9, 1),
                         pad=(10, (10, 5))), sg.Button('Salir', font=("Arial", 11), size=(9, 1), pad=(10, (10, 5))),
               sg.Push()]]
 last_row = [sg.Column(col_b1, vertical_alignment='middle'), sg.Column(col_b2, vertical_alignment='center')]
@@ -145,19 +169,41 @@ window2 = None  # Ventana de progreso
 while True:
     # Se utiliza el sistema multi-window. Se utiliza una segunda ventana.
     window, event, values = sg.read_all_windows()
-    # Se incluye el tipo de sonda dentro de la variable "values". Facilita el codigo en las funciones.
-    values.update({'-TYPEPROBE-': window['-TYPEPROBE-'].get()})
-    values.update({'-MULTIZONE-': window['-MULTIZONE-'].get()})
+
     print('event:', event)
     print('values:', values)
 
-    # Borrar para testeo unicamente
-    if event == "-MINALPHA-":
-        window['-MINALPHA-'].update('{}'.format(round(random.uniform(-20,20), 1)))
-        window['-MAXALPHA-'].update('{}'.format(round(random.uniform(-20, 20), 1)))
-        window['-MINBETA-'].update('{}'.format(round(random.uniform(-20, 20), 1)))
-        window['-MAXBETA-'].update('{}'.format(round(random.uniform(-20, 20), 1)))
+    # -------------------------Ventana de calculo de densidad-------------------------
+    # Abrir ventana de calculo
+    if event == "-CALC_DENSITY-":
+        window2 = density_calc()
 
+    # Cancelar Ingreso
+    if event == "-CANCEL_DENSITY-":
+        window2.close()
+
+    # Se calcula la densidad
+    if event == "-ACCEPT_DENSITY-":
+        # Verificar si los valores ingresados son numericos.
+        try:
+            pressure = float(values["-ATM_PRESSURE-"])
+            if 90000 <= pressure <= 105000:
+                temperature = float(values["-TEMP-"])
+                relative_humidity = float(values["-REL_HUMIDITY-"])
+                if 0 <= relative_humidity <= 100:
+                    density = air_density(pressure, relative_humidity, temperature)
+                    window1["-DENSITY_VALUE-"].update(value=round(density, 4))  # Se redondea a 4 cifras
+                    window2.close()
+                else:
+                    sg.popup_ok("La humedad relativa debe estar entre el 0-100%.", keep_on_top=True)
+            else:
+                sg.popup_ok("La Presion tiene un valor anormal.", keep_on_top=True)
+        except Exception as e:
+            print(e)
+            sg.popup_ok("Se deben ingresar valores numericos", keep_on_top=True)
+
+
+    # -------------------------Window Principal-------------------------
     # Evento de carga de archivo de calibracion
     if event == '-CALIBFILE-':
         can_process_calib = True
@@ -464,7 +510,7 @@ while True:
             # Analisis del archivo de configuracion. Si el tipo de sonda de la configuracion es diferente al
             # del utilizado por el archivos de calibracion cargado, se advierte. Se cargan los valores
             # en la seccion "Relacion Agujero: Toma de presion".
-            if not values['-TYPEPROBE-'] == conf_carg[0]:
+            if not window['-TYPEPROBE-'].get() == conf_carg[0]:
                 error_popup(
                     'El archivo de configuracion no coincide con el numero de tomas de la calibracion \n'
                     'No olvidar cargar el archivo de calibracion previmamente')
@@ -553,7 +599,10 @@ while True:
     # y ... (calibracion de la sonda junto con sus incertidumbres)
     if event == '-PROCESS-':
         can_process = True  # Flag de que no existen errores.
-        # Ingreso de datos desde la interfaz grafica.
+        # Ingreso de datos desde la interfaz grafica
+        # Se incluye el tipo de sonda dentro de la variable "values". Facilita el codigo en las funciones.
+        values.update({'-TYPEPROBE-': window['-TYPEPROBE-'].get()})
+        values.update({'-MULTIZONE-': window['-MULTIZONE-'].get()})
         # Nombre de la carpeta de trabajo
         path_folder = values['-FOLDER-']
         # Nombre del archivo del cero referencia
@@ -583,7 +632,7 @@ while True:
         else:
             # No hay archivos del traverser en la carpeta. Para evitar errores debe estar dentro del "if".
             if traverser_files == [] and can_process:
-                error_popup('No hay archivos del traverser cargados')
+                error_popup('No hay archivos del traverser en la carpeta')
                 can_process = False
         #  No se selecciono el archivo de referencia del cero
         if (cero_file == '' or cero_file == 'No hay archivos CSV') and can_process:
@@ -597,6 +646,14 @@ while True:
             if flag == 1:
                 can_process = False
                 # NOTA: NO SE ANALIZA SI LAS TOMAS ESTAN DENTRO DEL ARCHIVO DE CALBIRACION YA QUE NO SE PODRIA POR  # LA FORMA EN QUE SE ACTUALIZA EL LISTADO DE TOMAS DISPONIBLES.
+        #  Verificacion de valor numerico en la densidad
+        if can_process:
+            try:
+                float(values["-DENSITY_VALUE-"])
+            except Exception as e:
+                print(e)
+                error_popup('El valor de densidad es incorrecto')
+                can_process = False
 
         # Calculo de los voltajes de referencia. Ante falla da aviso.
         if can_process:  # Si no hubo errores se continua. Similar a can_process==True.

@@ -391,7 +391,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
 
             pest = pss - (pres_hole1 - pss) * cpest
             ptot = pres_hole1 - (pres_hole1 - pss) * cptot
-            density = 1.225  # Unidades en SI
+            density = float(values["-DENSITY_VALUE-"])  # Unidades en SI
             V = ((2/density) * (pres_hole1 - pss) * (1 + cpest - cptot))**0.5
             Vx = (V * math.cos(alpha*math.pi/180)) * math.cos(beta*math.pi/180)
             Vy = V * math.sin(alpha*math.pi/180)

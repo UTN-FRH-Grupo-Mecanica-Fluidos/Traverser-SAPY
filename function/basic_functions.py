@@ -1,5 +1,6 @@
 from function.layout_functions import *
 from subprocess import check_output
+from math import exp
 import PySimpleGUI as sg
 import csv
 import matplotlib.pyplot as plt
@@ -177,7 +178,32 @@ def reference_voltage(path):
     return vref
 
 
-# -------------------------Guardados de archivos CSV-------------------------
+def air_density(total_pressure, relative_humidity, temperature):
+    # Basado en el calculo del wikipedia.
+    # https: // en.wikipedia.org / wiki / Density_of_air
+
+    # Constantes utilizadas
+    Rair = 287.058  # Constante de los gases para el aire seco [J/(kg·K]
+    Rvapor = 461.495  # Constante de los gases para el aire seco [J/(kg·K]
+
+    # Convertir temperatura de Celcius a Kelvin.
+    absolute_temperature = temperature + 273.15
+
+    # Calcular la presion de vapor de saturacion a una cierta temperatura [HPa].
+    saturation_pressure = 6.1078 * exp((17.5 * temperature) / (237.3 + temperature))
+    saturation_pressure = saturation_pressure * 100  # Convertir a Pascal
+    # Calculo de la presion parcial de vapor en el aire. Se convierte la humedad relativa a porcentual.
+    vapor_pressure = (relative_humidity/100) * saturation_pressure
+
+    # Calculo de la presion parcial del aire seco. Es la presion total menos la presion parcial del vapor de agua.
+    dry_air_pressure = total_pressure - vapor_pressure
+
+    # Calculo de la densidad del aire (ρ)
+    air_density = (dry_air_pressure / (Rair * absolute_temperature)) + (vapor_pressure / (Rvapor * absolute_temperature))
+
+    return air_density
+
+# -------------------------Guardado de archivos CSV-------------------------
 def save_csv_pressure(save_pressure, path, seplist, decsep):
     # Listado de variables a guardar.
     header_list = ['Posicion X', 'Posicion Y']
@@ -271,8 +297,6 @@ def save_csv_uncert(save_uncert, conf_level, path, seplist, decsep):
 
 
 def save_csv_trav(data_calib, path, seplist, decsep, values):
-    # Encabezado
-    header = ['', 'Promedio']
     # Grabado de los datos obtenidos.
     with open(path + '/traverser.csv', "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
@@ -289,6 +313,8 @@ def save_csv_trav(data_calib, path, seplist, decsep, values):
                 writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
             else:
                 writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
+        # Guardado del valor de densidad utilizado
+        writer.writerow(['Densidad [Kg/m3]: ', values["-DENSITY_VALUE-"]])
 
         # Guardado de los datos de los coeficientes
         if values['-TYPEPROBE-'] == '2 agujeros':
@@ -306,7 +332,7 @@ def save_csv_trav(data_calib, path, seplist, decsep, values):
                 # Listado de Keys a guardar.
                 key_list = ['Posicion X','Posicion Y', "hole 1", "hole 2", "hole 3", "hole 4", "hole 5", "Cpalfa",
                             'Cpbeta','Zonamax', 'Alfa', 'Beta', 'Presion estatica', "Presion total",'Velocidad',
-                            "Vx", "Vy", "Vx"]
+                            "Vx", "Vy", "Vz"]
                 buffer = [data_calib[i][j] for j in key_list]  # Armo lista de valores con "key_list"
                 buffer = [str(data).replace('.', decsep) for data in buffer]  # Conversion a formato de salida CSV
                 writer.writerow(buffer)

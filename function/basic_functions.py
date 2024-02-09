@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 
 
 # Funciòn para determinar que los valores ingresados en la seccion "Relacion Agujeros: Tomas" sean correctos
-def ref_aguj_toma_ok(values):
+def ref_aguj_toma_ok(values, num):
     # Tipo de sonda seleccionada
-    num_tomas = values['-TYPEPROBE-']
+    num_tomas = num
     flag = 0  # Variable para determinar que es posible guardar la configuracion
     # Verifiacion de completitud de los datos ingresados
     data_conf = []
@@ -18,24 +18,24 @@ def ref_aguj_toma_ok(values):
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
-                error_popup('Uno o mas agujeros no tienen la toma de presion definida')
+                error_popup('Uno o mas agujeros no tienen los sensores de presion definidos')
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         # Se usa el elemento SET para determinar si hay tomas repetidas
         if len(set(data_conf)) != 3 and flag == 0:
-            error_popup('Una toma de presion es usada en mas de un agujero')
+            error_popup('Un sensor de presion es usado en mas de un agujero')
             flag = 1
     elif num_tomas == '3 agujeros':
         data_conf = [num_tomas, values['-NUM1-'], values['-NUM2-'], values['-NUM3-']]
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
-                error_popup('Uno o mas agujeros no tienen la toma de presion definida')
+                error_popup('Uno o mas agujeros no tienen los sensores de presion definidos')
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         # Se usa el elemento SET para determinar si hay tomas repetidas
         if len(set(data_conf)) != 4 and flag == 0:
-            error_popup('Una toma de presion es usada en mas de un agujero')
+            error_popup('Un sensor de presion es usado en mas de un agujero')
             flag = 1
     elif num_tomas == '5 agujeros':
         # Se usa el elemento SET para determinar si hay tomas repetidas
@@ -44,11 +44,11 @@ def ref_aguj_toma_ok(values):
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
-                error_popup('Uno o mas agujeros no tienen la toma de presion definida')
+                error_popup('Uno o mas agujeros no tienen los sensores de presion definidos')
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         if len(set(data_conf)) != 6 and flag == 0:
-            error_popup('Una toma de presion es usada en mas de un agujero')
+            error_popup('Un sensor de presion es usado en mas de un agujero')
             flag = 1
     elif num_tomas == '7 agujeros':
         data_conf = [num_tomas, values['-NUM1-'], values['-NUM2-'], values['-NUM3-'], values['-NUM4-'],
@@ -56,15 +56,15 @@ def ref_aguj_toma_ok(values):
         # Se busca posibles valores vacios
         for i in range(len(data_conf)):
             if data_conf[i] == '' and flag == 0:
-                error_popup('Uno o mas agujeros no tienen la toma de presion definida')
+                error_popup('Uno o mas agujeros no tienen los sensores de presion definidos')
                 flag = 1
                 break  # Corta el "for" cuando encuentra un error.
         # Se usa el elemento SET para determinar si hay tomas repetidas
         if len(set(data_conf)) != 8 and flag == 0:
-            error_popup('Una toma de presion es usada en mas de un agujero')
+            error_popup('Un sensor de presion es usado en mas de un agujero')
             flag = 1
     else:
-        error_popup('No se cargo ningun tipo de sonda')
+        error_popup('El tipo de sonda es erroneo')
         flag = 1
     return flag, data_conf
 
@@ -180,11 +180,11 @@ def reference_voltage(path):
 
 def air_density(total_pressure, relative_humidity, temperature):
     # Basado en el calculo del wikipedia.
-    # https: // en.wikipedia.org / wiki / Density_of_air
+    # https://en.wikipedia.org/wiki/Density_of_air
 
     # Constantes utilizadas
-    Rair = 287.058  # Constante de los gases para el aire seco [J/(kg·K]
-    Rvapor = 461.495  # Constante de los gases para el aire seco [J/(kg·K]
+    rair = 287.058  # Constante de los gases para el aire seco [J/(kg·K]
+    rvapor = 461.495  # Constante de los gases para el aire seco [J/(kg·K]
 
     # Convertir temperatura de Celcius a Kelvin.
     absolute_temperature = temperature + 273.15
@@ -199,7 +199,7 @@ def air_density(total_pressure, relative_humidity, temperature):
     dry_air_pressure = total_pressure - vapor_pressure
 
     # Calculo de la densidad del aire (ρ)
-    air_density = (dry_air_pressure / (Rair * absolute_temperature)) + (vapor_pressure / (Rvapor * absolute_temperature))
+    air_density = (dry_air_pressure / (rair * absolute_temperature)) + (vapor_pressure / (rvapor * absolute_temperature))
 
     return air_density
 
@@ -219,7 +219,7 @@ def save_csv_pressure(save_pressure, path, seplist, decsep):
         writer = csv.writer(f, delimiter=seplist)
         writer.writerow(["Valores de Presion de los sensores en Pascales"])  # Nota del tipo de archivo
         writer.writerow(header_list)  # Encabezado de datos
-        key_list = header_list[2:]  # Listado de keys wue tienen un listado de valores. En general presiones y el tiempo
+        key_list = header_list[2:]  # Listado de keys que tienen un listado de valores. En general presiones y el tiempo
         # Se toma el primer elemento de "key_list" para determinar la longitud de la listas de presiones o tiempo
         for i in range(len(save_pressure)):
             for j in range(len(save_pressure[i][key_list[1]])):

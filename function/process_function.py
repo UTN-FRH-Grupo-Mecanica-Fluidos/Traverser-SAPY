@@ -24,8 +24,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
             for j in range(len(data_csv[i])):
                 data_buffer.append(float(data_csv[i][j].replace(',', '.')))  # Conversion de string a float.
             data.append(data_buffer)
-        # ----------------Procesamiento de las presiones y angulos----------------
-        data_pressure = []  # Inicializo la variable de salida.
+        # ----------------Procesamiento de las presiones y Posicion----------------
         # Agrego la posicion X e Y a los datos
         data_out.update({'Posicion X': data[0][0], 'Posicion Y': data[1][0]})
         # Calculo de las presiones
@@ -40,7 +39,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
             for j in range(1, len(data[2])):
                 Vout = data[i * 2][j]
                 Vs = data[i * 2 + 1][j]
-                value = (((Vout - V0) / (Vs * 0.2)) * 1000) * (1)  # PRESION MODIFICADA <<<--------
+                value = (((Vout - V0) / (Vs * 0.2)) * 1000)
                 value = float('%.4f' % value)  # Reduccion a 4 cifras
                 pressure.append(value)
             # Guardado de datos en variable de salida y en variable local
@@ -84,7 +83,6 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
     # --------------Calculo de la incertidumbre--------------
     # Se determina el numero de tomas de los keys del diccionario "data_out"
     pressure_list = [k for k in list(data_out.keys()) if 'Presion-Sensor' in k]
-    data_uncert = []  # Inicializo la variable de salida.
     crit = 10  # Criterio de contribucion dominante. Se eligio 10 veces superior.
     for i in pressure_list:
         # Extraigo datos numericos.
@@ -137,14 +135,15 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
             # Incertidumbre expandida
             uexpand = k * ucomb
             data_out.update({"Uexpandida ({}%)-{}".format(nivconf * 100, numb_probe): uexpand})
+
             # Reduccion de cifras. OMITIDO POR AHORA
             # averange = float('%.2f' % averange)
             # uexpand = float('%.4f' % uexpand)
             # k = float('%.4f' % k)
         else:
             # En mediciones de un solo valor no es posible calcular la incertidumbre. Se aplica N/A a todos los datos
-            data_out.update({"TipoA-{}".format(numb_probe): 'N/A'})
-            data_out.update({"TipoB-presion-{}".format(numb_probe): 'N/A'})
+            data_out.update({"Tipo A-{}".format(numb_probe): 'N/A'})
+            data_out.update({"Tipo B-presion-{}".format(numb_probe): 'N/A'})
             data_out.update({"Incertidumbre Combinada-{}".format(numb_probe): 'N/A'})
             data_out.update({"Coeficiente-expansion-{})".format(numb_probe): 'N/A'})
             data_out.update({"Tipo-distribucion-{}".format(numb_probe): 'N/A'})

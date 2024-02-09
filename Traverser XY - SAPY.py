@@ -25,15 +25,15 @@ sg.theme('SystemDefaultForReal')
 def density_calc():
     layout_density = [[sg.T("Presion Atmosferica Absoluta [Pa]")],
                       [sg.I("", justification="center", k="-ATM_PRESSURE-", s=8),
-                       sg.T("±"), sg.I("0", justification="center", k="-ATM_PRESSURE_UNCERT-", s=8, disabled=True,
-                                       tooltip="No Implementado")],
+                       sg.T("±", visible = False), sg.I("0", justification="center", k="-ATM_PRESSURE_UNCERT-",
+                            s=8, visible = False, tooltip="No Implementado")],
                       [sg.T("Temperatura [ºC]")],
-                      [sg.I("", justification="center", k="-TEMP-", s=5,), sg.T("±"),
-                       sg.I("0", justification="center", k="-TEMP_UNCERT-", s=5, disabled=True,
+                      [sg.I("", justification="center", k="-TEMP-", s=5,), sg.T("±", visible = False),
+                       sg.I("0", justification="center", k="-TEMP_UNCERT-", s=5, visible = False,
                             tooltip="No Implementado")],
                       [sg.T("Humedad Relativa [%]")],
-                      [sg.I("", justification="center", k="-REL_HUMIDITY-",s=5), sg.T("±"),
-                       sg.I("0", justification="center", k="-REL_HUMIDITY_UNCERT-", s=5, disabled=True,
+                      [sg.I("", justification="center", k="-REL_HUMIDITY-",s=5), sg.T("±", visible = False),
+                       sg.I("0", justification="center", k="-REL_HUMIDITY_UNCERT-", s=5, visible = False,
                             tooltip="No Implementado")],
                       [sg.B("Aceptar", k="-ACCEPT_DENSITY-", pad=(8,8)), sg.B("Cancelar", k="-CANCEL_DENSITY-")]]
     return sg.Window("Calculo densidad del aire", layout_density, resizable=False, icon=icon_bytes,
@@ -85,10 +85,7 @@ frame_format_CSV = [
 # Logo, nivel de confianza, boton procesar y salir
 col_b1 = [[sg.Image(source=logo, subsample=3, tooltip='Laboratorio de Aerodinamica y Fluidos')]]
 col_b2 = [[sg.T("Densidad [Kg/m3]", justification="left"), sg.B("Calcular", s=12, k="-CALC_DENSITY-")],
-          [sg.I('', s=7, justification="center", p=(0, 8), k="-DENSITY_VALUE-"),
-           sg.T("±"),
-           sg.I('0.0000', s=6, justification="center", k="-DENSITY_VALUE_UNCERT-",readonly=True,
-                tooltip="No Implementado")],
+          [sg.I('1.225', s=7, justification="center", p=(0, 8), k="-DENSITY_VALUE-", pad = (2,0))],
           [sg.Text('Nivel de confianza:'), sg.Combo(values=['68%', '95%', '99%'], key='-NIVCONF-',
                                                     default_value=['95%'], s=(5, 1), readonly=True,
                                                     background_color='white')],
@@ -134,7 +131,7 @@ agujero_toma_frame = [sg.Push(),
 
 # Frame Graficos de Calibracion
 # Seleccion Graficos (listado)
-graf = [[sg.Listbox(values=['Seleccione archivo calibracion'], key='-PLOT LIST-', size=(35, 16), enable_events=True,
+graf = [[sg.Listbox(values=['Seleccione archivo traverser'], key='-PLOT LIST-', size=(35, 16), enable_events=True,
                     select_mode=sg.LISTBOX_SELECT_MODE_EXTENDED)]]
 # Frame graficos, Boton graficar y guardar
 col_e1 = [
@@ -145,7 +142,7 @@ graf_button = [[sg.Input(key='-GRAFARCH-', enable_events=True, size=(33, 1)),
                 sg.FileBrowse(button_text='Buscar', file_types=(('Archivo CSV', '.csv'),))],
                [sg.Column(col_e1), sg.Column(col_e2)]]
 graf_calib = [sg.Push(),
-              sg.Frame('Graficos de calibracion', graf_button, vertical_alignment='center', font=("Arial", 13, 'bold'),
+              sg.Frame('Graficos del Mapeo', graf_button, vertical_alignment='center', font=("Arial", 13, 'bold'),
                        title_location='nw'), sg.Push()]
 
 # Columna Derecha Final
@@ -195,7 +192,7 @@ while True:
                     window1["-DENSITY_VALUE-"].update(value=round(density, 4))  # Se redondea a 4 cifras
                     window2.close()
                 else:
-                    sg.popup_ok("La humedad relativa debe estar entre el 0-100%.", keep_on_top=True)
+                    sg.popup_ok("La humedad relativa debe tener un valor entre 0-100%.", keep_on_top=True)
             else:
                 sg.popup_ok("La Presion tiene un valor anormal.", keep_on_top=True)
         except Exception as e:
@@ -210,34 +207,174 @@ while True:
         # ---------Carga de los datos del archivo de calibracion---------
         try:
             raw_data = []  # Reinicio de la variable donde se guardan los datos del CSV.
-            # Carga de datos para un formato de separacion de columnas del tipo ","
-            with open(values['-CALIBFILE-']) as csv_file:
-                csv_reader = csv.reader(csv_file, delimiter=',')
-                # Extraigo todas las filas del archivo y se lo procesa.
-                for csv_row in csv_reader:
-                    raw_data.append(csv_row)
-            # Si el numero de columnas de la primera linea es menor a 2, es debido a que el separador
-            # de columnas del CSV es ";".
-            if len(raw_data[0]) <= 1:
-                # Se vuelve a cargar el archivo con el delimitador ";" y se cambia los
-                # decimales de "," a "." para poder procesarlo.
-                raw_data = []  # Reinicio de la variable donde se guardan los datos del CSV.
+            # Lee el archivo de calibracion y determina si inicia como "Tipo de sonda: ," o' "Tipo de sonda: ;"
+            with open(values['-CALIBFILE-'], 'r') as file:
+                first_line = file.readline()
+            if "Tipo de sonda: ," in first_line:
+                # Carga de datos para un formato de separacion de columnas del tipo ","
+                with open(values['-CALIBFILE-']) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=',')
+                    # Extraigo todas las filas del archivo y se lo procesa.
+                    for csv_row in csv_reader:
+                        raw_data.append(csv_row)
+            else:
+                # Carga de datos para un formato de separacion de columnas del tipo ";"
                 with open(values['-CALIBFILE-']) as csv_file:
                     csv_reader = csv.reader(csv_file, delimiter=';')
                     # Extraigo todas las filas de un archivo y se lo procesa.
                     for csv_row in csv_reader:
                         raw_data.append(csv_row)
-                    # Convierto en float los valores. Cambio "," a ".". Se usa "nested list comprehensions" para procesar
-                    raw_data = [[l.replace(',', '.') for l in i] for i in raw_data]
+                # Convierto en float los valores. Cambio "," a ".". Se usa "nested list comprehensions" para procesar
+                raw_data = [[l.replace(',', '.') for l in i] for i in raw_data]
+            del first_line  # Borrado de variables innecesarias
+
             # Se determina el tipo de sonda y si el calculo de los coeficientes de calibracion
             # fue realizado en forma "Multi-Zona"
             probe_type = raw_data[0][1]
             sect_calc = raw_data[1][1]
-            # Eliminar informacion extra.
-            calib_data = [raw_data[i] for i in range(0, 4)]  # Se elimina el pie de nota
-            del calib_data[2][0]  # Se elimina primer elemento del encabezado
-            del calib_data[3][0]  # Se elimina primer elemento de los datos de los coeficientes
-            del calib_data[0:2]  # Se elimina primera linea con el tipo de sonda y la segunda
+            calib_data = raw_data  # La informacion de calibracion pasa a otra variable
+            del calib_data[0:3]  # Se elimina primera linea con el tipo de sonda y la segunda
+
+            # Se realiza una conversion a float y se redondea los valores durante la carga de valores.
+            # Angulos 1 cifra significativa. Coeficientes 4 cifras significativas
+            if probe_type == '2 agujeros':
+                # ---------- Carga de datos de la calibracion para 2 agujeros ----------
+                angle = [round(float(calib_data[i][0]), 1) for i in range(len(calib_data))]
+                cpangle = [round(float(calib_data[i][1]), 4) for i in range(len(calib_data))]
+                # ---------- Carga de funciones de interpolacion ----------
+                sorted_lists = sorted(zip(cpangle, angle), key=lambda x: x[0])  # Acomodo la lista en forma incremental para el interpolador
+                angle_sort, cpangle_sort = zip(*sorted_lists)
+                angle_interp = interpolate.CubicSpline(cpangle_sort, angle_sort)  # Interpolacion por "Cubic splines"
+                # ---------- Guardado de datos en variable de diccionario ----------
+                data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Angulo-Interp": angle_interp}
+
+                # Actualiza la imagen del numero de agujeros junto con sus referencias.
+                # Deshabilita o habilita los COMBO dependiendo del tipo de sonda elegida y se reemplaza el valor
+                # que tenia previamente por uno nulo [] cuando se deshabilita.
+                # Evento de seleccion de carpeta de trabajo
+                window['-IMAGENSONDA-'].update(source=dos_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 2 agujeros'
+                window['-NUM1-'].update(disabled=False)
+                window['-NUM2-'].update(disabled=False)
+                window['-NUM3-'].update(disabled=True, value=[])
+                window['-NUM4-'].update(disabled=True, value=[])
+                window['-NUM5-'].update(disabled=True, value=[])
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                window['-MINALPHA-'].update('{}'.format(min(angle)))
+                window['-MAXALPHA-'].update('{}'.format(max(angle)))
+                window['-MINBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                window['-MULTIZONE-'].update('{}'.format(sect_calc))
+            elif probe_type == '3 agujeros':
+                # ---------- Carga de datos de la calibracion para 3 agujeros ----------
+                angle = [round(float(calib_data[i][0]), 1) for i in range(len(calib_data))]
+                cpangle = [round(float(calib_data[i][1]), 4) for i in range(len(calib_data))]
+                cpestat = [round(float(calib_data[i][2]), 4) for i in range(len(calib_data))]
+                cptotal = [round(float(calib_data[i][3]), 4) for i in range(len(calib_data))]
+                # ---------- Carga de funciones de interpolacion ----------
+                sorted_lists = sorted(zip(cpangle, angle, cpestat, cptotal), key=lambda x: x[0])  # Acomodo la lista en forma incremental para el interpolador
+                cpangle_sort, angle_sort, cpestat_sort, cptotal_sort = zip(*sorted_lists)
+                angle_interp = interpolate.CubicSpline(cpangle_sort, angle_sort)  # Interpolacion por "Cubic splines"
+                cpestat_interp = interpolate.CubicSpline(cpangle_sort, cpestat_sort)  # Interpolacion por "Cubic splines"
+                cptotal_interp = interpolate.CubicSpline(cpangle_sort, cptotal_sort)  # Interpolacion por "Cubic splines"
+                # ---------- Guardado de datos en variable de diccionario ----------
+                data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Cpestatico": cpestat, "Cptotal": cptotal,
+                               "Angulo-Interp": angle_interp, "Cpestatico-Interp": cpestat_interp,
+                               "Cptotal-Interp": cptotal_interp}
+                # ---------- Modificacion de la ventana con datos cargados ----------
+                window['-IMAGENSONDA-'].update(source=tres_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 3 agujeros'
+                window['-NUM1-'].update(disabled=False)
+                window['-NUM2-'].update(disabled=False)
+                window['-NUM3-'].update(disabled=False)
+                window['-NUM4-'].update(disabled=True, value=[])
+                window['-NUM5-'].update(disabled=True, value=[])
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                window['-MINALPHA-'].update('{}'.format(min(angle)))
+                window['-MAXALPHA-'].update('{}'.format(max(angle)))
+                window['-MINBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                window['-MULTIZONE-'].update('{}'.format(sect_calc))
+
+            elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
+                # ---------- Carga de datos de la calibracion para 5 y 7 agujeros ----------
+                alpha = [round(float(calib_data[i][0]), 1) for i in range(len(calib_data))]
+                beta = [round(float(calib_data[i][1]), 1) for i in range(len(calib_data))]
+                cpalpha = [round(float(calib_data[i][2]), 4) for i in range(len(calib_data))]
+                cpbeta = [round(float(calib_data[i][3]), 4) for i in range(len(calib_data))]
+                cpestat = [round(float(calib_data[i][4]), 4) for i in range(len(calib_data))]
+                cptotal = [round(float(calib_data[i][5]), 4) for i in range(len(calib_data))]
+                max_zone = [calib_data[i][13] for i in range(len(calib_data))]
+                # ---------- Carga de funciones de interpolacion ----------
+                alfa_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, alpha, w=None, kx=3, ky=3, s=None,
+                                                                eps=1e-16)
+                beta_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, beta, w=None, kx=3, ky=3, s=None,
+                                                                eps=1e-16)
+                cpestat_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, cpestat, w=None, kx=3, ky=3, s=None,
+                                                                   eps=1e-16)
+                cptotal_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, cptotal, w=None, kx=3, ky=3, s=None,
+                                                                   eps=1e-16)
+                # ---------- Guardado de datos en variable de diccionario ----------
+                data_calibr = {'Alfa': alpha, "Beta": beta, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Cpestatico": cpestat,
+                               "Cptotal": cptotal, "Alfa-Interp": alfa_interp, "Beta-Interp": beta_interp,
+                               "Cpestatico-Interp": cpestat_interp, "Cptotal-Interp": cptotal_interp}
+                # ---------- Modificacion de la ventana con datos cargados ----------
+                if probe_type == '5 agujeros':
+                    window['-IMAGENSONDA-'].update(source=cinco_agujeros, subsample=3)
+                    window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 5 agujeros'
+                    window['-NUM1-'].update(disabled=False)
+                    window['-NUM2-'].update(disabled=False)
+                    window['-NUM3-'].update(disabled=False)
+                    window['-NUM4-'].update(disabled=False)
+                    window['-NUM5-'].update(disabled=False)
+                    window['-NUM6-'].update(disabled=True, value=[])
+                    window['-NUM7-'].update(disabled=True, value=[])
+                    window['-MINALPHA-'].update('{}'.format(min(alpha)))
+                    window['-MAXALPHA-'].update('{}'.format(max(alpha)))
+                    window['-MINBETA-'].update('{}'.format(min(beta)))
+                    window['-MAXBETA-'].update('{}'.format(max(beta)))
+                    window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                    window['-MULTIZONE-'].update('{}'.format(sect_calc))
+                elif probe_type == '7 agujeros':
+                    window['-IMAGENSONDA-'].update(source=siete_agujeros, subsample=3)
+                    window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 7 agujeros'
+                    window['-NUM1-'].update(disabled=False)
+                    window['-NUM2-'].update(disabled=False)
+                    window['-NUM3-'].update(disabled=False)
+                    window['-NUM4-'].update(disabled=False)
+                    window['-NUM5-'].update(disabled=False)
+                    window['-NUM6-'].update(disabled=False)
+                    window['-NUM7-'].update(disabled=False)
+                    window['-MINALPHA-'].update('{}'.format(min(alpha)))
+                    window['-MAXALPHA-'].update('{}'.format(max(alpha)))
+                    window['-MINBETA-'].update('{}'.format(min(beta)))
+                    window['-MAXBETA-'].update('{}'.format(max(beta)))
+                    window['-TYPEPROBE-'].update('{}'.format(probe_type))
+                    window['-MULTIZONE-'].update('{}'.format(sect_calc))
+            else:
+                # Sino falla durante la carga del archivo pero el dato del tipo de sonda es erroneo
+                # se filta en esta estancia. Se actualiza el layout de la misma forma que fallara la carga.
+                window['-MINALPHA-'].update('{}'.format('-'))
+                window['-MAXALPHA-'].update('{}'.format('-'))
+                window['-MINBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-MAXBETA-'].update('{}'.format('-'))
+                window['-TYPEPROBE-'].update('{}'.format('-'))
+                window['-MULTIZONE-'].update('{}'.format('-'))
+                window['-IMAGENSONDA-'].update(source=sin_agujeros, subsample=3)
+                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda no definida'
+                window['-NUM1-'].update(disabled=True, value=[])
+                window['-NUM2-'].update(disabled=True, value=[])
+                window['-NUM3-'].update(disabled=True, value=[])
+                window['-NUM4-'].update(disabled=True, value=[])
+                window['-NUM5-'].update(disabled=True, value=[])
+                window['-NUM6-'].update(disabled=True, value=[])
+                window['-NUM7-'].update(disabled=True, value=[])
+                error_popup('El archivo de calibracion no es procesable')
         except Exception as e:
             # Si el archivo fallo en procesarse se advierte
             print(e)
@@ -259,163 +396,7 @@ while True:
             window['-NUM6-'].update(disabled=True, value=[])
             window['-NUM7-'].update(disabled=True, value=[])
             can_process_calib = False
-        # Como el archivo de calibracion es valido se cargan los datos y se actualiza los datos en el layout
-        if can_process_calib:
-            # Se realiza una conversion a float y se redondea los valores durante la carga de valores.
-            # Angulos 1 cifra significativa. Coeficientes 4 cifras significativas
-            if probe_type == '2 agujeros':
-                # Carga de datos de la calibracion para 2 agujeros
-                angle = []
-                cpangle = []
-                for i in range(int(len(calib_data[1]) / 2)):
-                    # Los coeficientes vienen en paquetes de 2 datos por angulo
-                    angle.append(round(float(calib_data[1][2 * i + 0]), 1))
-                    cpangle.append(round(float(calib_data[1][2 * i + 1]), 4))
-                # Carga de funciones de interpolacion
-                angle_interp = interpolate.interp2d(cpangle, angle, kind='cubic', bounds_error=False)
-                # Guardado de datos en variable de diccionario
-                data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Angulo-Interp": angle_interp}
-            elif probe_type == '3 agujeros':
-                # Carga de datos de la calibracion para 3 agujeros
-                angle = []
-                cpangle = []
-                cpestat = []
-                cptotal = []
-                for i in range(int(len(calib_data[1]) / 4)):
-                    # Los coeficientes vienen en paquetes de 4 datos por angulo
-                    angle.append(round(float(calib_data[1][4 * i + 0]), 1))
-                    cpangle.append(round(float(calib_data[1][4 * i + 1]), 4))
-                    cpestat.append(round(float(calib_data[1][4 * i + 2]), 4))
-                    cptotal.append(round(float(calib_data[1][4 * i + 3]), 4))
-                # Carga de funciones de interpolacion
-                angle_interp = interpolate.interp2d(cpangle, angle, kind='cubic', bounds_error=False,
-                                                         fill_value='nan')
-                cpestat_interp = interpolate.interp2d(cpangle, cpestat, kind='cubic', bounds_error=False,
-                                                            fill_value='nan')
-                cptotal_interp = interpolate.interp2d(cpangle, cptotal, kind='cubic', bounds_error=False,
-                                                            fill_value='nan')
-                # Guardado de datos en variable de diccionario
-                data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Cpestatico": cpestat, "Cptotal": cptotal,
-                               "Angulo-Interp": angle_interp, "Cpestatico-Interp": cpestat_interp,
-                               "Cptotal-Interp": cptotal_interp}
-            elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
-                # Carga de datos de la calibracion para 5 y 7 agujeros. Tienen los mismos coeficientes.
-                alpha = []
-                beta = []
-                cpalpha = []
-                cpbeta = []
-                cpestat = []
-                cptotal = []
-                max_zone = []
-                for i in range(int(len(calib_data[1]) / 7)):
-                    # Los coeficientes vienen en paquetes de 7 datos por angulo. Los datos del "max_zone" se cargan
-                    # aunque no sea sectorizado el analisis
-                    alpha.append(round(float(calib_data[1][7 * i + 0]), 1))
-                    beta.append(round(float(calib_data[1][7 * i + 1]), 1))
-                    cpalpha.append(round(float(calib_data[1][7 * i + 2]), 4))
-                    cpbeta.append(round(float(calib_data[1][7 * i + 3]), 4))
-                    cpestat.append(round(float(calib_data[1][7 * i + 4]), 4))
-                    cptotal.append(round(float(calib_data[1][7 * i + 5]), 4))
-                    max_zone.append(calib_data[1][7 * i + 6])
-                # Carga de funciones de interpolacion
-                alfa_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, alpha, w=None, kx=3, ky=3, s=None, eps=1e-16)
-                beta_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, beta, w=None, kx=3, ky=3, s=None, eps=1e-16)
-                cpestat_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, cpestat, w=None, kx=3, ky=3, s=None, eps=1e-16)
-                cptotal_interp = interpolate.SmoothBivariateSpline(cpalpha, cpbeta, cptotal, w=None, kx=3, ky=3, s=None, eps=1e-16)
-                # Guardado de datos en variable de diccionario
-                data_calibr = {'Alfa': alpha, "Beta": beta, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Cpestatico": cpestat,
-                               "Cptotal": cptotal, "Alfa-Interp": alfa_interp, "Beta-Interp": beta_interp,
-                               "Cpestatico-Interp": cpestat_interp, "Cptotal-Interp": cptotal_interp}
-            else:
-                # Sino falla durante la carga del archivo pero el dato del tipo de sonda es erroneo
-                # se filta en esta estancia. Se actualiza el layout de la misma forma que fallara la carga.
-                window['-MINALPHA-'].update('{}'.format('-'))
-                window['-MAXALPHA-'].update('{}'.format('-'))
-                window['-MINBETA-'].update('{}'.format('-'))
-                window['-MAXBETA-'].update('{}'.format('-'))
-                window['-MAXBETA-'].update('{}'.format('-'))
-                window['-TYPEPROBE-'].update('{}'.format('-'))
-                window['-MULTIZONE-'].update('{}'.format('-'))
-                window['-IMAGENSONDA-'].update(source=sin_agujeros, subsample=3)
-                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda no definida'
-                window['-NUM1-'].update(disabled=True, value=[])
-                window['-NUM2-'].update(disabled=True, value=[])
-                window['-NUM3-'].update(disabled=True, value=[])
-                window['-NUM4-'].update(disabled=True, value=[])
-                window['-NUM5-'].update(disabled=True, value=[])
-                window['-NUM6-'].update(disabled=True, value=[])
-                window['-NUM7-'].update(disabled=True, value=[])
-                error_popup('El archivo de calibracion no es procesable')
 
-            # Actualiza la imagen del numero de agujeros junto con sus referencias.
-            # Deshabilita o habilita los COMBO dependiendo del tipo de sonda elegida y se reemplaza el valor
-            # que tenia previamente por uno nulo [] cuando se deshabilita.
-            if probe_type == '2 agujeros':
-                window['-IMAGENSONDA-'].update(source=dos_agujeros, subsample=3)
-                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 2 agujeros'
-                window['-NUM1-'].update(disabled=False)
-                window['-NUM2-'].update(disabled=False)
-                window['-NUM3-'].update(disabled=True, value=[])
-                window['-NUM4-'].update(disabled=True, value=[])
-                window['-NUM5-'].update(disabled=True, value=[])
-                window['-NUM6-'].update(disabled=True, value=[])
-                window['-NUM7-'].update(disabled=True, value=[])
-                window['-MINALPHA-'].update('{}'.format(min(angle)))
-                window['-MAXALPHA-'].update('{}'.format(max(angle)))
-                window['-MINBETA-'].update('{}'.format('-'))
-                window['-MAXBETA-'].update('{}'.format('-'))
-                window['-TYPEPROBE-'].update('{}'.format(probe_type))
-                window['-MULTIZONE-'].update('{}'.format(sect_calc))
-            elif probe_type == '3 agujeros':
-                window['-IMAGENSONDA-'].update(source=tres_agujeros, subsample=3)
-                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 3 agujeros'
-                window['-NUM1-'].update(disabled=False)
-                window['-NUM2-'].update(disabled=False)
-                window['-NUM3-'].update(disabled=False)
-                window['-NUM4-'].update(disabled=True, value=[])
-                window['-NUM5-'].update(disabled=True, value=[])
-                window['-NUM6-'].update(disabled=True, value=[])
-                window['-NUM7-'].update(disabled=True, value=[])
-                window['-MINALPHA-'].update('{}'.format(min(angle)))
-                window['-MAXALPHA-'].update('{}'.format(max(angle)))
-                window['-MINBETA-'].update('{}'.format('-'))
-                window['-MAXBETA-'].update('{}'.format('-'))
-                window['-TYPEPROBE-'].update('{}'.format(probe_type))
-                window['-MULTIZONE-'].update('{}'.format(sect_calc))
-            elif probe_type == '5 agujeros':
-                window['-IMAGENSONDA-'].update(source=cinco_agujeros, subsample=3)
-                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 5 agujeros'
-                window['-NUM1-'].update(disabled=False)
-                window['-NUM2-'].update(disabled=False)
-                window['-NUM3-'].update(disabled=False)
-                window['-NUM4-'].update(disabled=False)
-                window['-NUM5-'].update(disabled=False)
-                window['-NUM6-'].update(disabled=True, value=[])
-                window['-NUM7-'].update(disabled=True, value=[])
-                window['-MINALPHA-'].update('{}'.format(min(alpha)))
-                window['-MAXALPHA-'].update('{}'.format(max(alpha)))
-                window['-MINBETA-'].update('{}'.format(min(beta)))
-                window['-MAXBETA-'].update('{}'.format(max(beta)))
-                window['-TYPEPROBE-'].update('{}'.format(probe_type))
-                window['-MULTIZONE-'].update('{}'.format(sect_calc))
-            elif probe_type == '7 agujeros':
-                window['-IMAGENSONDA-'].update(source=siete_agujeros, subsample=3)
-                window['-IMAGENSONDA-'].TooltipObject.text = 'Sonda de 7 agujeros'
-                window['-NUM1-'].update(disabled=False)
-                window['-NUM2-'].update(disabled=False)
-                window['-NUM3-'].update(disabled=False)
-                window['-NUM4-'].update(disabled=False)
-                window['-NUM5-'].update(disabled=False)
-                window['-NUM6-'].update(disabled=False)
-                window['-NUM7-'].update(disabled=False)
-                window['-MINALPHA-'].update('{}'.format(min(alpha)))
-                window['-MAXALPHA-'].update('{}'.format(max(alpha)))
-                window['-MINBETA-'].update('{}'.format(min(beta)))
-                window['-MAXBETA-'].update('{}'.format(max(beta)))
-                window['-TYPEPROBE-'].update('{}'.format(probe_type))
-                window['-MULTIZONE-'].update('{}'.format(sect_calc))
-
-    # Evento de seleccion de carpeta de trabajo
     if event == '-FOLDER-':
         # Guardado de la ubicacion de la carpeta de trabajo del traverser
         path_folder = values['-FOLDER-']
@@ -479,7 +460,8 @@ while True:
     if event == '-GUARDCONF-':
         # Determinacion de que los datos ingresados por layout no tengan tomas repetidas
         # o no se hallan ingresado valores. Se utiliza una funcion.
-        flag, data_conf = ref_aguj_toma_ok(values)
+        num_tomas = window['-TYPEPROBE-'].get()
+        flag, data_conf = ref_aguj_toma_ok(values, num_tomas)
         # Si esta correcto se prosigue con el guardado de un archivo de extension "*.conf"
         if flag == 0:
             save_file = sg.popup_get_file('Guardar archivo de configuracion',
@@ -512,23 +494,21 @@ while True:
             # en la seccion "Relacion Agujero: Toma de presion".
             if not window['-TYPEPROBE-'].get() == conf_carg[0]:
                 error_popup(
-                    'El archivo de configuracion no coincide con el numero de tomas de la calibracion \n'
-                    'No olvidar cargar el archivo de calibracion previmamente')
-            # elif probe_type == '-':
-            #     error_popup('No se cargo aun el archivo de calibracion')
+                    'El tipo de sonda indicado en el archivo de configuracion no coincide con el de la calibracion ingresada \n'
+                    'No olvidar cargar el archivo de calibracion previamente')
             else:
                 if conf_carg[0] == '2 agujeros':
                     # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
                     # con el tipo de sonda
                     if len(conf_carg) != 3:
-                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        error_popup('El archivo de configuracion tiene un numero de sensores incorrecto')
                         flag = 1
                     # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
                     # en la calibracion
                     for i in conf_carg[1:]:
                         if i not in num_tomas_list:
-                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
-                                        'no utilizadas en la calibracion')
+                            error_popup('El archivo de configuracion tiene numeros de sensor de presion\n'
+                                        'no utilizados por el traverser')
                             flag = 1
                     if flag == 0:
                         # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
@@ -538,14 +518,14 @@ while True:
                     # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
                     # con el tipo de sonda
                     if len(conf_carg) != 4:
-                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        error_popup('El archivo de configuracion tiene un numero de sensores incorrecto')
                         flag = 1
                     # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
                     # en la calibracion
                     for i in conf_carg[1:]:
                         if i not in num_tomas_list:
-                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
-                                        'no utilizadas en la calibracion')
+                            error_popup('El archivo de configuracion tiene numeros de sensor de presion\n'
+                                        'no utilizados por el traverser')
                             flag = 1
                     if flag == 0:
                         # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
@@ -556,14 +536,14 @@ while True:
                     # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
                     # con el tipo de sonda
                     if len(conf_carg) != 6:
-                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        error_popup('El archivo de configuracion tiene un numero de sensores incorrecto')
                         flag = 1
                     # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
                     # en la calibracion
                     for i in conf_carg[1:]:
                         if i not in num_tomas_list:
-                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
-                                        'no utilizadas en la calibracion')
+                            error_popup('El archivo de configuracion tiene numeros de sensor de presion\n'
+                                        'no utilizados por el traverser')
                             flag = 1
                     if flag == 0:
                         # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
@@ -576,14 +556,14 @@ while True:
                     # El numero de tomas de presion definidos en el archivo de configuracion deberia ser coherente
                     # con el tipo de sonda
                     if len(conf_carg) != 8:
-                        error_popup('El archivo de configuracion tiene un numero de tomas incorrecto')
+                        error_popup('El archivo de configuracion tiene un numero de sensores incorrecto')
                         flag = 1
                     # Las tomas de presion definidas en el archivo de configuracion deben ser igual a las utilizadas
                     # en la calibracion
                     for i in conf_carg[1:]:
                         if i not in num_tomas_list:
-                            error_popup('El archivo de configuracion tiene tomas de presiòn\n'
-                                        'no utilizadas en la calibracion')
+                            error_popup('El archivo de configuracion tiene numeros de sensor de presion\n'
+                                        'no utilizados por el traverser')
                             flag = 1
                     if flag == 0:
                         # Modificacion de la seccion "relacion Agujero: Toma de presion" y carga de los valores.
@@ -642,10 +622,11 @@ while True:
         if can_process:
             # Determinacion de que los datos ingresados por layout no tengan tomas repetidas
             # o no se halla ingresado ningun valor.
-            flag, data_conf = ref_aguj_toma_ok(values)
+            num_tomas = window['-TYPEPROBE-'].get()
+            flag, data_conf = ref_aguj_toma_ok(values, num_tomas)
             if flag == 1:
                 can_process = False
-                # NOTA: NO SE ANALIZA SI LAS TOMAS ESTAN DENTRO DEL ARCHIVO DE CALBIRACION YA QUE NO SE PODRIA POR  # LA FORMA EN QUE SE ACTUALIZA EL LISTADO DE TOMAS DISPONIBLES.
+
         #  Verificacion de valor numerico en la densidad
         if can_process:
             try:
@@ -660,49 +641,30 @@ while True:
             try:  # Prueba procesar el archivo sino genera mensaje de error.
                 path_cero = path_folder + '/' + cero_file
                 vref = reference_voltage(path_cero)
+                # Listado de los valores de voltaje del autozero. Se activa for el checkbox.
+                if values['-INFO AUTOZERO-'] and can_process:
+                    values_vref = []
+                    for sensor_volt, value in vref.items():
+                        values_vref.append(str(sensor_volt) + ': {}'.format(round(value, 4)))
+                    autozero_popup('\n'.join(values_vref))
             except Exception as e:
                 print(e)
                 vref = []  # Evita tomar valores de una instancia anterior
                 # Aviso de cero no procesable
-                error_popup('El archivo de referencia cero no es procesable')
+                error_popup('El archivo del Autozero no es procesable')
                 can_process = False
 
-        # Avisa sino es posible grabar los archivos de salida.
-        if can_process:
-            # Prueba grabar el archivo presiones.csv sino genera mensaje de error.
+        # Creacion/verificacion de la carpeta "Resultados".
+        save_path_folder = path_folder + '/Resultados'  # Linea para cambiar el nombre de la carpeta de salida
+        if not os.path.isdir(save_path_folder):
             try:
-                f = open(path_folder + '/' + 'Resultados' + '/presiones.csv', "w")
-                f.writable()
-                f.close()
+                # Prueba generar la cerpeta "Resultados".
+                os.mkdir(save_path_folder)
             except Exception as e:
                 print(e)
-                error_popup('El archivo presiones.csv se encuentra abierto, cierrelo e intente de nuevo')
+                # Aviso la carpeta de salida no pudo crearse
+                error_popup('No se pudo crear la carpeta "Resultados"')
                 can_process = False
-            # Prueba grabar el archivo incertidumbre.csv sino genera mensaje de error.
-            try:
-                f = open(path_folder + '/' + 'Resultados' + '/incertidumbre.csv', "w")
-                f.writable()
-                f.close()
-            except Exception as e:
-                print(e)
-                error_popup('El archivo incertidumbre.csv se encuentra abierto, cierrelo e intente de nuevo')
-                can_process = False
-            # Prueba grabar el archivo traverser-coeficientes.csv sino genera mensaje de error.
-            try:
-                f = open(path_folder + '/' + 'Resultados' + '/traverser.csv', "w")
-                f.writable()
-                f.close()
-            except Exception as e:
-                print(e)
-                error_popup('El archivo traverser.csv se encuentra abierto, cierrelo e intente de nuevo')
-                can_process = False
-
-        # Listado de los valores de voltaje del autozero. Se activa for el checkbox.
-        if values['-INFO AUTOZERO-'] and can_process:
-            values_vref = []
-            for toma_volt, value in vref.items():
-                values_vref.append(str(toma_volt) + ': {}'.format(round(value, 4)))
-            autozero_popup('\n'.join(values_vref))
 
         # Si no hay errores se inicia el calculo
         if can_process:
@@ -718,63 +680,135 @@ while True:
             window2 = sg.Window('Procesando', [[sg.Text('Procesando ... 0%', key='-PROGRESS VALUE-')], [
                 sg.ProgressBar(len(file_path_list), orientation='horizontal', style='xpnative', size=(20, 20),
                                k='-PROGRESS-')]], finalize=True)
-            # Creacion/verificacion de carpeta "Resultados"
-            if not os.path.isdir(path_folder + '/' + 'Resultados'):
-                os.mkdir(path_folder + '/' + 'Resultados')
 
             for i in range(len(file_path_list)):
                 data = []  # Reinicio de la variable donde se guardan los datos del CSV.
                 # Actualizacion barra de progreso
                 window2['-PROGRESS-'].update(current_count=i)
                 window2['-PROGRESS VALUE-'].update('Procesando ... {}%'.format(int(((i+1)/len(file_path_list))*100)))
-                # Si existe error por faltante de archivos o problema al procesar se guarda en un listado y avisa.
-                try:
-                    # Se abre cada archivo que figura en el listado.
-                    with open(file_path_list[i]) as csv_file:
-                        csv_reader = csv.reader(csv_file, delimiter=';')
-                        # Extraigo todas las filas de un archivo y se lo procesa.
-                        for csv_row in csv_reader:
-                            data.append(csv_row)
+                # Se abre cada archivo que figura en el listado.
+                with open(file_path_list[i]) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=';')
+                    # Extraigo todas las filas de un archivo y se lo procesa.
+                    for csv_row in csv_reader:
+                        data.append(csv_row)
+                    try:
                         # Procesamiento de los datos
                         data_calc = data_process(data, vref, conf_level, data_calibr, values)
                         # Union de los datos procesados de cada archivo.
                         save_data.append(data_calc)
-                except Exception as e:
-                    print(e)
-                    error_files_list.append(file_path_list[i])
+                    except Exception as e:
+                        print(e)
+                        error_files_list.append(file_path_list[i])
             # Se cierra la ventana de progreso
             window2.close()
 
-            # Guardado de los archivos
-            # Ventana de aviso de guardado de archivos
-            window2 = sg.Window('', [[sg.Text('Guardando archivos CSV')]], no_titlebar=True, background_color='grey',
-                                finalize=True)
-            # Path de guardado de resultados
-            try:
-                path_save = path_folder + '/' + 'Resultados'
-                save_csv_pressure(save_data, path_save, seplist, decsep)
-                save_csv_uncert(save_data, conf_level, path_save, seplist, decsep)
-                save_csv_trav(save_data, path_save, seplist, decsep, values)
-                info_popup('Los archivos de salida se guardaron con exito')
-            except Exception as e:
-                print(e)
-                info_popup('Existen problemas en el guardado de los archivos de salida')
-                error_files_list.append(file_path_list[i])
-
-            #  Se cierra la ventana de aviso de guardado de archivos
-            window2.close()
-
+            # Prevención de error cuando todos los archivos fallan en procesarse.
+            if len(save_data) == 0:
+                info_popup('No se llego a procesar ningun archivo')
+            else:
+                # Guardado de los archivos
+                # Ventana de aviso de guardado de archivos
+                window2 = sg.Window('', [[sg.Text('Guardando archivos CSV')]], no_titlebar=True, background_color='grey',
+                                    finalize=True)
+                # Path de guardado de resultados
+                try:
+                    save_csv_pressure(save_data, save_path_folder, seplist, decsep)
+                    save_csv_uncert(save_data, conf_level, save_path_folder, seplist, decsep)
+                    save_csv_trav(save_data, save_path_folder, seplist, decsep, values)
+                    info_popup('Los archivos de salida se guardaron con exito')
+                except Exception as e:
+                    print(e)
+                    info_popup('Existen problemas en el guardado de los archivos de salida')
+                    error_files_list.append(file_path_list[i])
+                #  Se cierra la ventana de aviso de guardado de archivos
+                window2.close()
 
             # Informa los archivos que no pudieron procesarse
             if error_files_list:
                 error_files_popup('\n'.join(error_files_list))
-            # Agregado del archivo de calibracion a la seccion de graficos.
-            # Se agrega un "event" y se modifica "values" para que se genere el
-            # procesamiento por parte del modulo de graficacion
-            # window['-GRAFARCH-'].update(path_folder + '/calibracion.csv')
-            # event = '-GRAFARCH-'
-            # values['-GRAFARCH-'] = path_folder + '/calibracion.csv'  # Necesario para procesar el archivos
+
+    # Evento de carga de archivo de calibracion para luego graficarlo.
+    # Este evento DEBE estar luego del evento '-PROCESS-' para que la carga automatica del archivo de calibracion
+    # luego de procesar funcione
+    if event == '-GRAFARCH-':
+        can_process_plot = True  # Flag para determinar que el archivo cargado es valido para graficar
+        # ---------Carga de los datos del archivo de calibracion---------
+        try:
+            raw_data = []  # Reinicio de la variable donde se guardan los datos del CSV.
+            # Lee el archivo de calibracion y determina si inicia como "Tipo de sonda: ," o' "Tipo de sonda: ;"
+            with open(values['-GRAFARCH-'], 'r') as file:
+                first_line = file.readline()
+            if "Tipo de sonda: ," in first_line:
+                # Carga de datos para un formato de separacion de columnas del tipo ","
+                with open(values['-GRAFARCH-']) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=',')
+                    # Extraigo todas las filas del archivo y se lo procesa.
+                    for csv_row in csv_reader:
+                        raw_data.append(csv_row)
+            else:
+                # Carga de datos para un formato de separacion de columnas del tipo ";"
+                with open(values['-GRAFARCH-']) as csv_file:
+                    csv_reader = csv.reader(csv_file, delimiter=';')
+                    # Extraigo todas las filas de un archivo y se lo procesa.
+                    for csv_row in csv_reader:
+                        raw_data.append(csv_row)
+                # Convierto en float los valores. Cambio "," a ".". Se usa "nested list comprehensions" para procesar
+                raw_data = [[l.replace(',', '.') for l in i] for i in raw_data]
+            del first_line  # Borrado de variables innecesarias
+            # Se determina el tipo de sonda y si el calculo de los coeficientes de calibracion
+            # fue realizado en forma "sectorial"
+            probe_type = raw_data[0][1]
+            sect_calc = raw_data[1][1]
+            # Se elininan los datos de las dos primeras filas
+            raw_data = raw_data[2:]
+
+            # Extracion de los datos (ChatGPT)
+            # Encabezado
+            headers = raw_data[0]
+            # Usando los encabezados como keys inicio el diccionario con listas vacias
+            graph_data = {header: [] for header in headers}
+            # Agrego los datos de cada columna a su key correspondiente
+            for row in raw_data[1:]:
+                for header, value in zip(headers, row):
+                    graph_data[header].append(value)
+            # Agregado del tipo de sonda y analisis sectorizado
+            graph_data.update({"Tipo de sonda": probe_type, "Analisis Sectorizado": sect_calc})
+        except Exception as e:
+            # Si el archivo fallo en procesarse se advierte y "resetea" la seccion "Graficos"
+            print(e)
+            error_popup('El archivo de calibracion no es procesable')
+            can_process_plot = False
+            window['-PLOT LIST-'].update(values=['Seleccione archivo calibracion'])
+            window['-GRAFICAR-'].update(disabled=True)
+            window['-GUARDGRAF-'].update(disabled=True)
+        # Actualizacion del listado de funciones disponibles para graficar y carga de los datos necesarios para graficar.
+        if can_process_plot:
+            window['-GRAFICAR-'].update(disabled=False)
+            window['-GUARDGRAF-'].update(disabled=False)
+            # Se realiza una conversion a float y se redondea los valores durante la carga de valores.
+            # Angulos 1 cifra significativa. Coeficientes 4 cifras significativas
+            if probe_type == '2 agujeros':
+                plot_list = ['CpAngulo=F(Angulo)']  # Graficos disponibles
+                window['-PLOT LIST-'].update(values=plot_list)
+            elif probe_type == '3 agujeros':
+                plot_list = ['CpAngulo=F(Angulo)', 'CpEstatico=F(Angulo)',
+                             'CpTotal=F(Angulo)']  # Graficos disponibles
+                window['-PLOT LIST-'].update(values=plot_list)
+            elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
+                plot_list = ['CpAlfa=F(Alfa,Beta)', 'CpBeta=F(Alfa,Beta)', 'CpEstatico=F(Alfa,Beta)',
+                             'CpTotal=F(Alfa,Beta)', 'Alfa=F(CpAlfa,CpBeta)', 'Beta=F(CpAlfa,CpBeta)',
+                             "Datos=f(angulo) - VTK", "Datos=f(Cp) - VTK"]
+                # Se agrega la funcion de Analisis Sectorizado si la calibracion tiene este tipo de analisis.
+                if sect_calc == 'Utilizado':
+                    plot_list += ['Analisis Sectorial']
+                window['-PLOT LIST-'].update(values=plot_list)
+            else:
+                # No deberia ocurrir nunca pero se lo agrega por seguridad.
+                error_popup('El archivo de calibracion no es procesable')
+
 
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:
         break
+

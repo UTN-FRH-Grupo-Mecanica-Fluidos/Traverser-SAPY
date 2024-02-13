@@ -1,6 +1,8 @@
 from function.layout_functions import *
 from subprocess import check_output
 from math import exp
+import vtkmodules.all as vtk
+import datetime
 import PySimpleGUI as sg
 import csv
 import matplotlib.pyplot as plt
@@ -206,20 +208,25 @@ def air_density(total_pressure, relative_humidity, temperature):
 # -------------------------Guardado de archivos CSV-------------------------
 def save_csv_pressure(save_pressure, path, seplist, decsep):
     # Listado de variables a guardar.
-    header_list = ['Posicion X', 'Posicion Y']
+    key_list = ['Posicion X', 'Posicion Y']
     # Si existe la variable tiempo se incorpora
     if 'Tiempo medicion' in list(save_pressure[0].keys()):
-        header_list.extend(['Tiempo medicion'])
+        key_list.extend(['Tiempo medicion'])
     # Agregado de los sensores en la lista. Se analiza los keys del primer diccionario unicamente.
-    header_list.extend([k for k in list(save_pressure[0].keys()) if 'Presion-Sensor' in k])
-    header_list.sort()
-    buffer = []  # Guardado de variable buffer
+    key_list.extend([k for k in list(save_pressure[0].keys()) if 'Presion-Sensor' in k])
+    key_list.sort()
     # Grabado de los datos obtenidos.
-    with open(path + '/presiones.csv', "w", newline='') as f:
+    date_file_name = datetime.datetime.now().strftime("%H-%M-%S_%d-%m-%Y")  # Hora y dia de guardado. Utilizado para guardado de los archivos CSV
+    save_file_name = path + '/presiones_{}.csv'.format(date_file_name)
+    with open(save_file_name, "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
-        writer.writerow(["Valores de Presion de los sensores en Pascales"])  # Nota del tipo de archivo
-        writer.writerow(header_list)  # Encabezado de datos
-        key_list = header_list[2:]  # Listado de keys que tienen un listado de valores. En general presiones y el tiempo
+        # Guardado de encabezado y mejoramiento de nombres.
+        header = key_list
+        header = [s.replace('Posicion X', 'Posicion X[mm]') for s in header]
+        header = [s.replace('Posicion Y', 'Posicion Y[mm]') for s in header]
+        header = [s.replace('Presion-Sensor', 'Presion Sensor[Pa] - ') for s in header]
+        writer.writerow(header)  # Encabezado de datos
+        key_list = key_list[2:]  # Listado de keys que tienen un listado de valores. En general presiones
         # Se toma el primer elemento de "key_list" para determinar la longitud de la listas de presiones o tiempo
         for i in range(len(save_pressure)):
             for j in range(len(save_pressure[i][key_list[1]])):
@@ -230,62 +237,49 @@ def save_csv_pressure(save_pressure, path, seplist, decsep):
     f.close()  # Cerrado del archivo CSV
 
 def save_csv_uncert(save_uncert, conf_level, path, seplist, decsep):
-    # Encabezado
-    header = [l for l in list(save_uncert[0].keys()) if 'Presion-Sensor' in l]
-    header.insert(0, '')  # Se inserta el primer espacio en el encabezado
-    # Listado de variables a guardar. Se analiza los keys del primer diccionario unicamente.
-    sample_list = [l for l in list(save_uncert[0].keys()) if 'Muestras-' in l]  # Listado de Tomas - Muestras
-    sample_list.sort()
-    averange_list = [l for l in list(save_uncert[0].keys()) if 'Promedio-' in l]  # Listado de Tomas - Promedio
-    averange_list.sort()
-    exp_list = [l for l in list(save_uncert[0].keys()) if 'Uexpandida ' in l]  # Listado de Tomas - Uexpandida
-    exp_list.sort()
-    k_list = [l for l in list(save_uncert[0].keys()) if 'Coeficiente-expansion-' in l]  # Listado de Tomas - K
-    k_list.sort()
-    distrib_list = [l for l in list(save_uncert[0].keys()) if 'Tipo-distribucion-' in l]  # Listado de Tomas - Promedio
-    distrib_list.sort()
+    # Armado del listado de keys de diccionario. Se toma el primer punto analizado como referencia
+    # Angulo
+    key_list = ["Posicion X", "Posicion Y"]
+    # Numero de muestras
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Muestras-' in l])
+    # Promedio de presiones de cada sensor
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Promedio-' in l])
+    # Incertidumbre Tipo A
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Tipo A-' in l])
+    # Incertidumbre Tipo B del instrumento. 1.5 %
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Tipo B-presion-' in l])
+    # Incertidumbre Combinada
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Incertidumbre Combinada-' in l])
+    # Coeficiente de expansion
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Coeficiente-expansion-' in l])
+    # Tipo de distribución
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Tipo-distribucion-' in l])
+    # Incertidumbre Expandida
+    key_list.extend([l for l in list(save_uncert[1].keys()) if 'Uexpandida' in l])
 
-    # Grabado de los datos obtenidos.
-    with open(path + '/incertidumbre.csv', "w", newline='') as f:
+    # Grabado de los datos obtenidos y apertura del archivo a guardar los datos de incertidumbre.
+    date_file_name = datetime.datetime.now().strftime("%H-%M-%S_%d-%m-%Y")  # Hora y dia de guardado. Utilizado para guardado de los archivos CSV
+    save_file_name = path + '/incertidumbre_{}.csv'.format(date_file_name)
+    with open(save_file_name, "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
+        # Guardado del encabezado y mejoramiento de los nombres
+        header = key_list
+        header = [s.replace('Posicion X', 'Posicion X[mm]') for s in header]
+        header = [s.replace('Posicion Y', 'Posicion Y[mm]') for s in header]
+        header = [s.replace('Muestras-', 'Nº Muestras[] ') for s in header]
+        header = [s.replace('Promedio-', 'Promedio[Pa] ') for s in header]
+        header = [s.replace('Tipo A-', 'Tipo A - ') for s in header]
+        header = [s.replace('Tipo B-presion-', 'Tipo B(presion) - ') for s in header]
+        header = [s.replace('Incertidumbre Combinada-', 'Incertidumbre Combinada ') for s in header]
+        header = [s.replace('Coeficiente-expansion-', 'Coeficiente expansion ') for s in header]
+        header = [s.replace('Tipo-distribucion-', 'Tipo distribucion ') for s in header]
+        header = [s.replace('Uexpandida ({}%)-'.format(conf_level * 100), 'Uexpandida ({}%) - '.format(conf_level * 100)) for s in header]
+        writer.writerow(header)
         for i in range(len(save_uncert)):
-            buffer = []  # Reinicio de la variable. Guarda temporalmente los datos antes de pasarlo al CSV.
-            x_posit = str(save_uncert[i]['Posicion X']).replace('.', decsep)
-            writer.writerow(['Posicion X', x_posit])  # Guardado del punto X
-            y_posit = str(save_uncert[i]['Posicion Y']).replace('.', decsep)
-            writer.writerow(['Posicion Y', y_posit])  # Guardado del punto Y
-            writer.writerow(header)  # Guardado del encabezado
-            # ---Guardado de Muestras---
-            buffer = [save_uncert[i][l] for l in sample_list]
+            buffer = [save_uncert[i][l] for l in key_list]
             # Convierto los decimales al formato elegido.
             buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-            buffer.insert(0, 'Numero de muestras')
             writer.writerow(buffer)
-            # ---Guardado de Promedios---
-            buffer = [save_uncert[i][l] for l in averange_list]
-            # Convierto los decimales al formato elegido.
-            buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-            buffer.insert(0, 'Promedio')
-            writer.writerow(buffer)
-            # ---Guardado de Uexpandida---
-            buffer = [save_uncert[i][l] for l in exp_list]
-            # Convierto los decimales al formato elegido.
-            buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-            buffer.insert(0, 'Uexpandida ({}%)'.format(conf_level * 100))
-            writer.writerow(buffer)
-            # ---Guardado del Coeficiente de expansion---
-            buffer = [save_uncert[i][l] for l in k_list]
-            # Convierto los decimales al formato elegido.
-            buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-            buffer.insert(0, 'Coeficiente de expansion')
-            writer.writerow(buffer)
-            # ---Guardado del Tipo de distribucion---
-            buffer = [save_uncert[i][l] for l in distrib_list]
-            # Convierto los decimales al formato elegido.
-            buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-            buffer.insert(0, 'Tipo de distribucion')
-            writer.writerow(buffer)
-            writer.writerow(['##########' for i in range(len(header))])  # Division entre puntos del traverser
         # Escritura de nota de archivos de incertidumbre.
         writer.writerow([])
         writer.writerow(
@@ -297,126 +291,75 @@ def save_csv_uncert(save_uncert, conf_level, path, seplist, decsep):
 
 
 def save_csv_trav(data_calib, path, seplist, decsep, values):
+    date_file_name = datetime.datetime.now().strftime("%H-%M-%S_%d-%m-%Y")  # Hora y dia de guardado. Utilizado para guardado de los archivos CSV
+    save_file_name = path +'/traverser_{}.csv'.format(date_file_name)
     # Grabado de los datos obtenidos.
-    with open(path + '/traverser.csv', "w", newline='') as f:
+    with open(save_file_name, "w", newline='') as f:
         writer = csv.writer(f, delimiter=seplist)
-        # Nota del tipo de archivo
-        writer.writerow(["Datos utilizados en el procesamiento del traverser"])
+        # Encabezado de las filas.
         # Informacion del tipo de sonda
         writer.writerow(['Tipo de sonda: ', values['-TYPEPROBE-']])
-        # Informacion si se utiliza el analisis sectorizado
-        if values['-TYPEPROBE-'] == '2 agujeros' or values['-TYPEPROBE-'] == '3 agujeros':
-            # Sonda de 2 y 3 agujeros no tiene analisis sectorizado.
+
+        # Se preparan las lista de keys del diccionario y los encabezados para el archivo de salida.
+        # Guardado de los datos de los coeficientes
+        if values['-TYPEPROBE-'] == '2 agujeros':
+            #  Informacion si se utiliza el analisis sectorizado
             writer.writerow(['Analisis Sectorizado: ', 'No Aplica'])
-        else:
+            # Guardado del valor de densidad utilizado
+            writer.writerow(['Densidad [Kg/m3]: ', values["-DENSITY_VALUE-"]])
+            key_list = ["Posicion X", "Posicion Y", 'hole 1', 'hole 2', "Cpangulo", "Angulo"]
+            header = ['Posicion X[mm]', 'Posicion Y[mm]', "Agujero 1 [Pa]", "Agujero 2 [Pa]", "Cp Angulo []", 'Angulo [º]']
+
+        elif values['-TYPEPROBE-'] == '3 agujeros':
+            # Informacion si se utiliza el analisis sectorizado
+            writer.writerow(['Analisis Sectorizado: ', 'No Aplica'])
+            # Guardado del valor de densidad utilizado
+            writer.writerow(['Densidad [Kg/m3]: ', values["-DENSITY_VALUE-"]])
+            key_list = ["Posicion X", "Posicion Y", 'hole 1', 'hole 2', 'hole 3', "Cpangulo", "Cpestatico", "Cptotal",
+                        "Angulo", 'Presion estatica', 'Presion total','Velocidad',"Vx", "Vy"]
+            header = ['Posicion X[mm]', 'Posicion Y[mm]', "Agujero 1 [Pa]", "Agujero 2 [Pa]", "Agujero 3 [Pa]",
+                      "Cp Angulo []", "Cp Estatico []", "Cp Total []", 'Angulo [º]', 'Presion estatica [Pa]',
+                      "Presion total [Pa]", 'Velocidad [m/seg]', 'Velocidad X [m/seg]', 'Velocidad Y [m/seg]']
+
+        elif values['-TYPEPROBE-'] == '5 agujeros':
+            #  Informacion si se utiliza el analisis sectorizado
             if values['-MULTIZONE-'] == 'Utilizado':
                 writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
             else:
                 writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
-        # Guardado del valor de densidad utilizado
-        writer.writerow(['Densidad [Kg/m3]: ', values["-DENSITY_VALUE-"]])
-
-        # Guardado de los datos de los coeficientes
-        if values['-TYPEPROBE-'] == '2 agujeros':
-            None
-        elif values['-TYPEPROBE-'] == '3 agujeros':
-            None
-        elif values['-TYPEPROBE-'] == '5 agujeros':
+            # Guardado del valor de densidad utilizado
+            writer.writerow(['Densidad [Kg/m3]: ', values["-DENSITY_VALUE-"]])
             # Encabezado de los datos
-            header_list = ['Posicion X', 'Posicion Y', "Agujero 1 [Pa]", "Agujero 2 [Pa]", "Agujero 3 [Pa]",
-                           "Agujero 4 [Pa]", "Agujero 5 [Pa]", "Cp Alfa []", "Cp Beta []", "Zona Maxima", 'Alfa [º]',
-                           'Beta [º]', 'Presion estatica [Pa]', "Presion total [Pa]",'Velocidad [m/seg]',
-                           'Velocidad X [m/seg]', 'Velocidad Y [m/seg]', 'Velocidad Z [m/seg]']
-            writer.writerow(header_list)
-            for i in range(len(data_calib)):
-                # Listado de Keys a guardar.
-                key_list = ['Posicion X','Posicion Y', "hole 1", "hole 2", "hole 3", "hole 4", "hole 5", "Cpalfa",
-                            'Cpbeta','Zonamax', 'Alfa', 'Beta', 'Presion estatica', "Presion total",'Velocidad',
-                            "Vx", "Vy", "Vz"]
-                buffer = [data_calib[i][j] for j in key_list]  # Armo lista de valores con "key_list"
-                buffer = [str(data).replace('.', decsep) for data in buffer]  # Conversion a formato de salida CSV
-                writer.writerow(buffer)
-        elif values['-TYPEPROBE-'] == '7 agujeros':
-            None
-    f.close()  # Cerrado del archivo CSV
+            key_list = ["Posicion X", "Posicion Y", 'hole 1', 'hole 2', 'hole 3', "hole 4", "hole 5", "Cpalfa",
+                        'Cpbeta', "Cpestatico", "Cptotal", 'Zonamax', 'Alfa', 'Beta', 'Presion estatica',
+                        "Presion total", 'Velocidad', "Vx", "Vy", "Vz"]
+            header = ['Posicion X[mm]', 'Posicion Y[mm]', "Agujero 1 [Pa]", "Agujero 2 [Pa]", "Agujero 3 [Pa]",
+                      "Agujero 4 [Pa]", "Agujero 5 [Pa]", "Cp Alfa []", "Cp Beta []", "Cp Estatico []", "Cp Total []",
+                       "Zona Maxima",'Alfa [º]', 'Beta [º]', 'Presion estatica [Pa]', "Presion total [Pa]",
+                      'Velocidad [m/seg]', 'Velocidad X [m/seg]', 'Velocidad Y [m/seg]', 'Velocidad Z [m/seg]']
 
-# ELIMINAR FUNCION
-# def save_csv_flow(data_flow, path, seplist, decsep, values):
-#     # Encabezado
-#     header = ['', 'Promedio']
-#     with open(path + '/traverser-velocidades.csv', "w", newline='') as f:
-#         writer = csv.writer(f, delimiter=seplist)
-#         # Informacion del tipo de sonda
-#         writer.writerow(['Tipo de sonda: ', values['-TYPEPROBE-']])
-#         # Informacion si se utiliza el analisis sectorizado
-#         if values['-TYPEPROBE-'] == '2 agujeros' or values['-TYPEPROBE-'] == '3 agujeros':
-#             # Sonda de 2 y 3 agujeros no tiene analisis sectorizado.
-#             writer.writerow(['Analisis Sectorizado: ', 'No Aplica'])
-#         else:
-#             if values['-MULTIZONE-'] == 'Utilizado':
-#                 writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
-#                 writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-#             else:
-#                 writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
-#                 writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-#         for i in range(len(data_flow)):
-#             buffer = []  # Reinicio de la variable. Guarda temporalmente los datos antes de pasarlo al CSV.
-#             if values['-TYPEPROBE-'] == '2 agujeros':
-#                 None
-#             if values['-TYPEPROBE-'] == '3 agujeros':
-#                 None
-#             if values['-TYPEPROBE-'] == '5 agujeros' or values['-TYPEPROBE-'] == '7 agujeros':
-#                 x_posit = str(data_flow[i]['Posicion X']).replace('.', decsep)
-#                 writer.writerow(['Posicion X', x_posit])  # Guardado del punto X
-#                 y_posit = str(data_flow[i]['Posicion Y']).replace('.', decsep)
-#                 writer.writerow(['Posicion Y', y_posit])  # Guardado del punto Y
-#                 writer.writerow(header)  # Guardado del encabezado
-#                 # ---Guardado de Alfa---
-#                 buffer = ['Alfa', str(data_flow[i]['Alfa'])]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Beta---
-#                 buffer = ['Beta', data_flow[i]['Beta']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Presion estatica---
-#                 buffer = ['Presion estatica', data_flow[i]['Presion estatica']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Presion total---
-#                 buffer = ['Presion total', data_flow[i]['Presion total']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Velocidad---
-#                 buffer = ['Velocidad', data_flow[i]['Velocidad']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Velocidad en X---
-#                 buffer = ['Velocidad X', data_flow[i]['Vx']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Velocidad en Y---
-#                 buffer = ['Velocidad Y', data_flow[i]['Vy']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 # ---Guardado de Velocidad en X---
-#                 buffer = ['Velocidad Z', data_flow[i]['Vz']]
-#                 # Convierto los decimales al formato elegido.
-#                 buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
-#                 writer.writerow(buffer)
-#                 writer.writerow(['##########', '##########'])  # Division entre puntos del traverser
-#     f.close()  # Cerrado del archivo CSV
+        elif values['-TYPEPROBE-'] == '7 agujeros':
+            # Informacion si se utiliza el analisis sectorizado
+            if values['-MULTIZONE-'] == 'Utilizado':
+                writer.writerow(['Analisis Sectorizado: ', 'Utilizado'])
+            elif not values['-HIGH ANGLE-']:
+                writer.writerow(['Analisis Sectorizado: ', 'No utilizado'])
+            # Guardado del valor de densidad utilizado
+            writer.writerow(['Densidad [Kg/m3]: ', values["-DENSITY_VALUE-"]])
+
+
+        # Guardado de encabezado y datos
+        writer.writerow(header)
+        for i in range(len(data_calib)):
+            buffer = [data_calib[i][l] for l in key_list]
+            # Convierto los decimales al formato elegido.
+            buffer = [str(buffer[i]).replace('.', decsep) for i in range(len(buffer))]
+            writer.writerow(buffer)
+        f.close()  # Cerrado del archivo CSV
 
 
 # -------------------------Funciones de Graficacion y Guardado de Graficos-------------------------
-def plot_2d(x, y, conf, save):
+def plot_2d(x, y, conf, save, path):
     # Armado de grafico
     plt.figure()
     plt.xlabel(conf['xlabel'])
@@ -425,12 +368,15 @@ def plot_2d(x, y, conf, save):
     plt.grid(visible=None, which='major', axis='both')
     plt.plot(x, y, linestyle='-', marker='o')
     if save:
-        plt.savefig(conf['save_name'])
+        # Hora y dia de guardado. Utilizado para guardado del grafico
+        date_file_name = datetime.datetime.now().strftime("%H-%M-%S_%d-%m-%Y")
+        save_file_name = path + conf["save_name"].replace("_.jpg", "_{}.jpg".format(date_file_name))
+        plt.savefig(save_file_name)
     else:
         plt.show()
 
 
-def plot_3d(x, y, z, conf, save):
+def plot_3d(x, y, z, conf, save, path):
     # Armado de grafico
     fig3 = plt.figure()
     ax = fig3.add_subplot(111, projection='3d')
@@ -440,6 +386,165 @@ def plot_3d(x, y, z, conf, save):
     plt.xlabel(conf['xlabel'])
     plt.ylabel(conf['ylabel'])
     if save:
-        plt.savefig(conf['save_name'])
+        # Hora y dia de guardado. Utilizado para guardado del grafico
+        date_file_name = datetime.datetime.now().strftime("%H-%M-%S_%d-%m-%Y")
+        save_file_name = path + conf["save_name"].replace("_.jpg", "_{}.jpg".format(date_file_name))
+        # Grabado del grafico
+        plt.savefig(save_file_name)
     else:
         plt.show()
+
+
+def plot_vtk(data, file_name):
+    # Crear estructura VTK PolyData.
+    points = vtk.vtkPoints()
+    vertices = vtk.vtkCellArray()
+    scalars_posx = vtk.vtkFloatArray()
+    scalars_posx.SetName("Posicion X")  # Definir el nombre del escalar
+    scalars_posy = vtk.vtkFloatArray()
+    scalars_posy.SetName("Posicion Y")  # Definir el nombre del escalar
+    scalars_alfa = vtk.vtkFloatArray()
+    scalars_alfa.SetName("Alfa")  # Definir el nombre del escalar
+    scalars_beta = vtk.vtkFloatArray()
+    scalars_beta.SetName("Beta")  # Definir el nombre del escalar
+    scalars_cpalfa = vtk.vtkFloatArray()
+    scalars_cpalfa.SetName("Cpalfa")  # Definir el nombre del escalar
+    scalars_cpbeta = vtk.vtkFloatArray()
+    scalars_cpbeta.SetName("Cpbeta")  # Definir el nombre del escalar
+    scalars_cpestatica = vtk.vtkFloatArray()
+    scalars_cpestatica.SetName("Cpestatica")  # Definir el nombre del escalar
+    scalars_cptotal = vtk.vtkFloatArray()
+    scalars_cptotal.SetName("Cptotal")  # Definir el nombre del escalar
+    scalars_hole1 = vtk.vtkFloatArray()
+    scalars_hole1.SetName("Agujero 1")  # Definir el nombre del escalar
+    scalars_hole2 = vtk.vtkFloatArray()
+    scalars_hole2.SetName("Agujero 2")  # Definir el nombre del escalar
+    scalars_hole3 = vtk.vtkFloatArray()
+    scalars_hole3.SetName("Agujero 3")  # Definir el nombre del escalar
+    scalars_hole4 = vtk.vtkFloatArray()
+    scalars_hole4.SetName("Agujero 4")  # Definir el nombre del escalar
+    scalars_hole5 = vtk.vtkFloatArray()
+    scalars_hole5.SetName("Agujero 5")  # Definir el nombre del escalar
+    scalars_presion_est = vtk.vtkFloatArray()
+    scalars_presion_est.SetName("Presion Estatica")  # Definir el nombre del escalar
+    scalars_presion_tot = vtk.vtkFloatArray()
+    scalars_presion_tot.SetName("Presion Total")  # Definir el nombre del escalar
+    scalars_vel = vtk.vtkFloatArray()
+    scalars_vel.SetName("Velocidad")  # Definir el nombre del escalar
+    scalars_velx = vtk.vtkFloatArray()
+    scalars_velx.SetName("Velocidad X")  # Definir el nombre del escalar
+    scalars_vely = vtk.vtkFloatArray()
+    scalars_vely.SetName("Velocidad Y")  # Definir el nombre del escalar
+    scalars_velz = vtk.vtkFloatArray()
+    scalars_velz.SetName("Velocidad Z")  # Definir el nombre del escalar
+    # En caso de sonda 7 agujeros
+    if data['Tipo de sonda'] == '7 agujeros':
+        scalars_hole6 = vtk.vtkFloatArray()
+        scalars_hole6.SetName("Agujero 6")  # Definir el nombre del escalar
+        scalars_hole7 = vtk.vtkFloatArray()
+        scalars_hole7.SetName("Agujero 7")  # Definir el nombre del escalar
+
+    for i in range(len(data['Posicion Y[mm]'])):
+        # Los puntos del plano depende del tipo de grafico seleccionado
+        x = float(data['Posicion X[mm]'][i].replace(",", "."))
+        y = float(data['Posicion Y[mm]'][i].replace(",", "."))
+        z = 0.0  # Se define en forma predefinida como "0"
+        # Descarga de datos para incorporarlos al VTK
+        posx = float(data['Posicion X[mm]'][i].replace(",", "."))
+        posy = float(data['Posicion Y[mm]'][i].replace(",", "."))
+        alfa = float(data['Alfa [º]'][i].replace(",", "."))
+        beta = float(data['Beta [º]'][i].replace(",", "."))
+        cpalfa = float(data['Cp Alfa []'][i].replace(",", "."))
+        cpbeta = float(data['Cp Beta []'][i].replace(",", "."))
+        cpestatica = float(data['Cp Estatico []'][i].replace(",", "."))
+        cptotal = float(data['Cp Total []'][i].replace(",", "."))
+        # Tema agujeros ver de un sistema de reconocimiento para diferentes agujeros, siempre 5 o 7
+        hole1 = float(data['Agujero 1 [Pa]'][i].replace(",", "."))
+        hole2 = float(data['Agujero 2 [Pa]'][i].replace(",", "."))
+        hole3 = float(data['Agujero 3 [Pa]'][i].replace(",", "."))
+        hole4 = float(data['Agujero 4 [Pa]'][i].replace(",", "."))
+        hole5 = float(data['Agujero 5 [Pa]'][i].replace(",", "."))
+        presion_est = float(data['Presion estatica [Pa]'][i].replace(",", "."))
+        presion_tot = float(data['Presion total [Pa]'][i].replace(",", "."))
+        vel = float(data['Velocidad [m/seg]'][i].replace(",", "."))
+        velx = float(data['Velocidad X [m/seg]'][i].replace(",", "."))
+        vely = float(data['Velocidad Y [m/seg]'][i].replace(",", "."))
+        velz = float(data['Velocidad Z [m/seg]'][i].replace(",", "."))
+        # En caso de sonda 7 agujeros
+        if data['Tipo de sonda'] == '7 agujeros':
+            hole6 = float(data['Agujero 6 [Pa]'][i].replace(",", "."))
+            hole7 = float(data['Agujero 7 [Pa]'][i].replace(",", "."))
+
+        point_id = points.InsertNextPoint(x, y, z)
+        vertices.InsertNextCell(1, [point_id])
+
+        # Generar escalares en formato VTK
+        scalars_posx.InsertNextValue(posx)
+        scalars_posy.InsertNextValue(posy)
+        scalars_alfa.InsertNextValue(alfa)
+        scalars_beta.InsertNextValue(beta)
+        scalars_cpalfa.InsertNextValue(cpalfa)
+        scalars_cpbeta.InsertNextValue(cpbeta)
+        scalars_cpestatica.InsertNextValue(cpestatica)
+        scalars_cptotal.InsertNextValue(cptotal)
+        scalars_hole1.InsertNextValue(hole1)
+        scalars_hole2.InsertNextValue(hole2)
+        scalars_hole3.InsertNextValue(hole3)
+        scalars_hole4.InsertNextValue(hole4)
+        scalars_hole5.InsertNextValue(hole5)
+        scalars_presion_est.InsertNextValue(presion_est)
+        scalars_presion_tot.InsertNextValue(presion_tot)
+        scalars_vel.InsertNextValue(vel)
+        scalars_velx.InsertNextValue(velx)
+        scalars_vely.InsertNextValue(vely)
+        scalars_velz.InsertNextValue(velz)
+        # En caso de sonda 7 agujeros
+        if data['Tipo de sonda'] == '7 agujeros':
+            scalars_hole6.InsertNextValue(hole6)
+            scalars_hole7.InsertNextValue(hole7)
+
+    # Crear un objeto "PolyData" y definir puntos, vetices e incluir los escalares
+    poly_data = vtk.vtkPolyData()
+    poly_data.SetPoints(points)
+    poly_data.SetVerts(vertices)
+
+    poly_data.GetPointData().AddArray(scalars_posx)
+    poly_data.GetPointData().AddArray(scalars_posy)
+    poly_data.GetPointData().AddArray(scalars_alfa)
+    poly_data.GetPointData().AddArray(scalars_beta)
+    poly_data.GetPointData().AddArray(scalars_cpalfa)
+    poly_data.GetPointData().AddArray(scalars_cpbeta)
+    poly_data.GetPointData().AddArray(scalars_cpestatica)
+    poly_data.GetPointData().AddArray(scalars_cptotal)
+    poly_data.GetPointData().AddArray(scalars_hole1)
+    poly_data.GetPointData().AddArray(scalars_hole2)
+    poly_data.GetPointData().AddArray(scalars_hole3)
+    poly_data.GetPointData().AddArray(scalars_hole4)
+    poly_data.GetPointData().AddArray(scalars_hole5)
+    poly_data.GetPointData().AddArray(scalars_presion_est)
+    poly_data.GetPointData().AddArray(scalars_presion_tot)
+    poly_data.GetPointData().AddArray(scalars_vel)
+    poly_data.GetPointData().AddArray(scalars_velx)
+    poly_data.GetPointData().AddArray(scalars_vely)
+    poly_data.GetPointData().AddArray(scalars_velz)
+    if data['Tipo de sonda'] == '7 agujeros':
+        poly_data.GetPointData().AddArray(scalars_hole6)
+        poly_data.GetPointData().AddArray(scalars_hole7)
+
+    # Aplicar "Delaunay 2D triangulation".
+    delaunay = vtk.vtkDelaunay2D()
+    delaunay.SetInputData(poly_data)
+    delaunay.Update()
+
+    # Hora y dia de guardado. Utilizado para guardado del archivo VTK
+    date_file_name = datetime.datetime.now().strftime("%H-%M-%S_%d-%m-%Y")
+    # Grabado del grafico
+    file_name = file_name.replace("_.vtk", "_{}.vtk".format(date_file_name))
+
+    # Guardar el conjunto de datos VTK a un archivo VTK
+    writer = vtk.vtkXMLPolyDataWriter()
+    writer.SetFileName(file_name)
+    writer.SetInputData(delaunay.GetOutput())
+    writer.Write()
+
+# Developed by P

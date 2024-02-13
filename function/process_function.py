@@ -157,15 +157,25 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                       values['-NUM6-'], values['-NUM7-']]
     relat_hole_tap = [x for x in relat_hole_tap if x != '']  # Elimino los valores vacios o agujeros no validos.
 
-    # Calculo de los coeficientes del traverser para una sonda de 2 agujeros.
+    # Calculo de los coeficientes del traverser para una sonda de 2 agujeros y parametros de flujo
     if probe_type == '2 agujeros':
         # Se relaciona el valor de la toma de presion respecto al agujero definido. Agujero: Toma.
         hole_data = {'hole 1': data_out["Promedio-{}".format(relat_hole_tap[0])],
                      'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])]}
         data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
-        # Calculo de coeficientes
-        q = 1  # DEBE INGRESARSE MANUALMENTE. A IMPLEMENTAR
+        # --------- Calculo de coeficientes ---------
+        q = 7.35  # DEBE INGRESARSE MANUALMENTE. A IMPLEMENTAR
         cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
+        # --------- Interpolacion de parametros de Flujo ---------
+        try:
+            angle = round(float(interpolat["Angulo-Interp"](cpangle)), 1)
+        except Exception as e:
+            print(e)
+            angle = 0  # Ante error deja valor nulo
+        # --------- Guardado de datos ---------
+        data_out.update({"Cpangulo": cpangle, "Angulo": angle})
+
+
 
     # Calculo de los coeficientes del traverser para una sonda de 3 agujeros.
     if probe_type == '3 agujeros':
@@ -176,11 +186,26 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
         data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
         # Calculo de coeficientes
         pss = mean([hole_data['hole 2'], hole_data['hole 3']])
-        denom = hole_data['hole 1'] - pss
-        cpangle = (hole_data['hole 3'] - hole_data['hole 2']) / denom
-        # Guardado de coeficientes
-        data_out.update({"Denom": denom})
-        data_out.update({"Cpangulo": cpangle})
+        cpangle = (hole_data['hole 3'] - hole_data['hole 2']) / (hole_data['hole 1'] - pss)
+        # --------- Interpolacion de parametros de Flujo ---------
+        try:
+            angle = round(float(interpolat["Angulo-Interp"](cpangle)), 1)
+            cpest = round(float(interpolat["Cpestatico-Interp"](cpangle)), 4)
+            cptot = round(float(interpolat["Cptotal-Interp"](cpangle)), 4)
+        except Exception as e:
+            print(e)
+            angle = 0  # Ante error deja valor nulo
+            cpest = 0  # Ante error deja valor nulo
+            cptot = 0  # Ante error deja valor nulo
+        # --------- Calculo de coeficientes ---------
+        pest = pss - (hole_data['hole 1'] - pss) * cpest
+        ptot = hole_data['hole 1'] - (hole_data['hole 1'] - pss) * cptot
+        density = float(values["-DENSITY_VALUE-"])  # Unidades en SI
+        V = ((2 / density) * (hole_data['hole 1'] - pss) * (1 + cpest - cptot)) ** 0.5
+        Vx = (V * math.cos(angle * math.pi / 180))
+        Vy = V * math.sin(angle * math.pi / 180)
+        data_out.update({'Angulo': angle, "Cpangulo": cpangle, "Cpestatico": cpest, "Cptotal": cptot,
+                         'Presion estatica': pest, 'Presion total': ptot, 'Velocidad': V, 'Vx': Vx, 'Vy': Vy})
 
     # Calculo de los coeficientes del traverser para una sonda de 5 agujeros.
     if probe_type == '5 agujeros':
@@ -204,7 +229,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
                 zone = 'Zona 1'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+                data_out.update({"Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 2':
                 # Calculo de coeficientes de calibracion para cuando el agujero 2 tiene
                 # la mayor presion. Agujero 4 en perdida.
@@ -214,7 +239,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
                 zone = 'Zona 2'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+                data_out.update({"Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 3':
                 # Calculo de coeficientes de calibracion para cuando el agujero 3 tiene
                 # la mayor presion. Agujero 5 en perdida.
@@ -224,7 +249,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cpbeta = (hole_data['hole 1'] - hole_data['hole 3']) / denom
                 zone = 'Zona 3'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+                data_out.update({"Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 4':
                 # Calculo de coeficientes de calibracion para cuando el agujero 4 tiene
                 # la mayor presion. Agujero 2 en perdida.
@@ -234,7 +259,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
                 zone = 'Zona 4'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+                data_out.update({"Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
             elif max_hole == 'hole 5':
                 # Calculo de coeficientes de calibracion para cuando el agujero 5 tiene
                 # la mayor presion. Agujero 3 en perdida.
@@ -244,7 +269,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cpbeta = (hole_data['hole 5'] - hole_data['hole 1']) / denom
                 zone = 'Zona 5'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+                data_out.update({"Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
         else:
             # Bajos angulos de calibracion
             # Calculo de coeficientes.
@@ -253,8 +278,53 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
             cpalpha = (hole_data['hole 4'] - hole_data['hole 2']) / denom
             cpbeta = (hole_data['hole 5'] - hole_data['hole 3']) / denom
             zone = 'N/A '
-            # Guardado de coeficientes
-            data_out.update({"Denom": denom, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+            data_out.update({"Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+
+        # --------- Interpolacion de parametros de Flujo ---------
+        try:
+            alpha = round(float(interpolat["Alfa-Interp"](cpalpha, cpbeta)[0]), 1)
+            beta = round(float(interpolat['Beta-Interp'](cpalpha, cpbeta)[0]), 1)
+            cpest = round(float(interpolat["Cpestatico-Interp"](cpalpha, cpbeta)[0]), 4)
+            cptot = round(float(interpolat["Cptotal-Interp"](cpalpha, cpbeta)[0]), 4)
+        except Exception as e:
+            print(e)
+            alpha = 0  # Ante error deja valor nulo
+            beta = 0  # Ante error deja valor nulo
+            cpest = 0  # Ante error deja valor nulo
+            cptot = 0  # Ante error deja valor nulo
+        # --------- Calculo de coeficientes ---------
+        # Si se analiza multizona las ecuaciones cambian. La P1 y PSS cambia dependiendo de max_hole.
+        if values['-MULTIZONE-'] == 'Utilizado':
+            if max_hole == 'hole 1':
+                Pi = hole_data["hole 1"]
+                pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
+            elif max_hole == 'hole 2':
+                Pi = hole_data["hole 2"]
+                pss = mean([hole_data['hole 1'], hole_data['hole 3'], hole_data['hole 5']])
+            elif max_hole == 'hole 3':
+                Pi = hole_data["hole 3"]
+                pss = mean([hole_data['hole 1'], hole_data['hole 2'], hole_data['hole 4']])
+            elif max_hole == 'hole 4':
+                Pi = hole_data["hole 4"]
+                pss = mean([hole_data['hole 1'], hole_data['hole 3'], hole_data['hole 5']])
+            elif max_hole == 'hole 5':
+                Pi = hole_data["hole 5"]
+                pss = mean([hole_data['hole 1'], hole_data['hole 2'], hole_data['hole 4']])
+        else:
+            Pi = hole_data["hole 1"]
+            pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
+
+        pest = pss - (Pi - pss) * cpest
+        ptot = Pi - (Pi - pss) * cptot
+        density = float(values["-DENSITY_VALUE-"])  # Unidades en SI
+        V = ((2 / density) * (Pi - pss) * (1 + cpest - cptot)) ** 0.5
+        Vx = (V * math.cos(alpha * math.pi / 180)) * math.cos(beta * math.pi / 180)
+        Vy = V * math.sin(alpha * math.pi / 180)
+        Vz = (V * math.cos(alpha * math.pi / 180)) * math.sin(beta * math.pi / 180)
+        # --------- Guardado de coeficientes ---------
+        data_out.update({'Alfa': alpha, 'Beta': beta, "Cpestatico": cpest, "Cptotal": cptot,
+                         'Presion estatica': pest, 'Presion total': ptot, 'Velocidad': V,
+             'Vx': Vx, 'Vy': Vy, 'Vz': Vz})
 
     # Calculo de los coeficientes de calibracion para una sonda de 7 agujeros. REFORMAR EL CALCULO
     if probe_type == '7 agujeros':
@@ -279,14 +349,14 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 denom = hole_data['hole 1'] - pss
                 # Coeficientes a, b y c
                 cpa = (hole_data['hole 5'] - hole_data['hole 2']) / denom
-                cpb = (hole_data['hole 4'] - hole_data['hole 7']) / denom
-                cpc = (hole_data['hole 3'] - hole_data['hole 6']) / denom
+                cpb = (hole_data['hole 7'] - hole_data['hole 4']) / denom
+                cpc = (hole_data['hole 6'] - hole_data['hole 3']) / denom
                 # Coeficientes alfa y beta
-                cpalpha = cpa + ((cpb - cpc) / denom)
+                cpalpha = cpa + ((cpb - cpc) / 2)
                 cpbeta = (cpb + cpc) / (3 ** 0.5)
                 zone = 'Zona 1'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpa": cpa, "Cpb": cpb, "Cpc": cpc, "Cpalfa": cpalpha, "Cpbeta": cpbeta,
+                data_out.update({"Cpa": cpa, "Cpb": cpb, "Cpc": cpc, "Cpalfa": cpalpha, "Cpbeta": cpbeta,
                                  "Zonamax": zone})
             elif max_hole == 'hole 2':
                 # Calculo de coeficientes de calibracion para cuando el agujero 2 tiene
@@ -296,7 +366,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cptan = (hole_data['hole 7'] - hole_data['hole 3']) / denom
                 zone = 'Zona 2'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
+                data_out.update({"Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 3':
                 # Calculo de coeficientes de calibracion para cuando el agujero 3 tiene
                 # la mayor presion. Agujeros 5, 6 y 7 en perdida.
@@ -305,7 +375,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cptan = (hole_data['hole 2'] - hole_data['hole 4']) / denom
                 zone = 'Zona 3'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
+                data_out.update({"Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 4':
                 # Calculo de coeficientes de calibracion para cuando el agujero 4 tiene
                 # la mayor presion. Agujeros 2, 6 y 7 en perdida.
@@ -314,7 +384,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cptan = (hole_data['hole 3'] - hole_data['hole 5']) / denom
                 zone = 'Zona 4'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
+                data_out.update({"Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 5':
                 # Calculo de coeficientes de calibracion para cuando el agujero 5 tiene
                 # la mayor presion. Agujeros 2, 3 y 7 en perdida.
@@ -323,7 +393,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cptan = (hole_data['hole 4'] - hole_data['hole 6']) / denom
                 zone = 'Zona 5'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
+                data_out.update({"Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 6':
                 # Calculo de coeficientes de calibracion para cuando el agujero 6 tiene
                 # la mayor presion. Agujeros 2, 3 y 4 en perdida.
@@ -332,7 +402,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cptan = (hole_data['hole 5'] - hole_data['hole 7']) / denom
                 zone = 'Zona 6'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
+                data_out.update({"Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             elif max_hole == 'hole 7':
                 # Calculo de coeficientes de calibracion para cuando el agujero 7 tiene
                 # la mayor presion. Agujeros 3, 4 y 5 en perdida.
@@ -341,7 +411,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                 cptan = (hole_data['hole 6'] - hole_data['hole 2']) / denom
                 zone = 'Zona 7'
                 # Guardado de coeficientes
-                data_out.update({"Denom": denom, "Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
+                data_out.update({"Cpalfa": cprad, "Cpbeta": cptan, "Zonamax": zone})
             # El paper determina otra nomenclatura para los coeficientes cuando se analiza en forma sectorial.
             # Se toma la direccion radial como alfa y la tangencial como beta. No deberia haber diferencia.
             if cprad:
@@ -355,48 +425,14 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
             denom = hole_data['hole 1'] - pss
             # Coeficientes a, b y c
             cpa = (hole_data['hole 5'] - hole_data['hole 2']) / denom
-            cpb = (hole_data['hole 4'] - hole_data['hole 7']) / denom
-            cpc = (hole_data['hole 3'] - hole_data['hole 6']) / denom
+            cpb = (hole_data['hole 7'] - hole_data['hole 4']) / denom
+            cpc = (hole_data['hole 6'] - hole_data['hole 3']) / denom
             # Coeficientes alfa y beta
-            cpalpha = cpa + ((cpb - cpc) / denom)
+            cpalpha = cpa + ((cpb - cpc) / 2)
             cpbeta = (cpb + cpc) / (3 ** 0.5)
             zone = 'N/A '
             data_out.update(
-                {"Denom": denom, "Cpa": cpa, "Cpb": cpb, "Cpc": cpc, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
+                {"Cpa": cpa, "Cpb": cpb, "Cpc": cpc, "Cpalfa": cpalpha, "Cpbeta": cpbeta, "Zonamax": zone})
 
-    # --------------Interpolacion de los parametros del flujo--------------
-    # Clasificacion por tipo de sonda
-    if values['-TYPEPROBE-'] == '2 agujeros':
-        None
-    if values['-TYPEPROBE-'] == '3 agujeros':
-        None
-    if values['-TYPEPROBE-'] == '5 agujeros' or values['-TYPEPROBE-'] == '7 agujeros':
-        if values['-MULTIZONE-'] == 'Utilizado':
-            None
-        else:
-            # Descarga de datos para interpolar
-            pres_hole1 = hole_data["hole 1"]
-            pss = mean([hole_data['hole 2'], hole_data['hole 3'], hole_data['hole 4'], hole_data['hole 5']])
-            cpalpha = data_out["Cpalfa"]
-            cpbeta = data_out["Cpbeta"]
-            alpha = interpolat["Alfa-Interp"](cpalpha, cpbeta)[0]
-            alpha = float(alpha)
-            beta = interpolat['Beta-Interp'](cpalpha, cpbeta)[0]
-            beta = float(beta)
-            cpest = interpolat['Cpestatico-Interp'](cpalpha, cpbeta)[0]
-            cpest = float(cpest)
-            cptot = interpolat['Cptotal-Interp'](cpalpha, cpbeta)[0]
-            cptot = float(cptot)
-
-            pest = pss - (pres_hole1 - pss) * cpest
-            ptot = pres_hole1 - (pres_hole1 - pss) * cptot
-            density = float(values["-DENSITY_VALUE-"])  # Unidades en SI
-            V = ((2/density) * (pres_hole1 - pss) * (1 + cpest - cptot))**0.5
-            Vx = (V * math.cos(alpha*math.pi/180)) * math.cos(beta*math.pi/180)
-            Vy = V * math.sin(alpha*math.pi/180)
-            Vz = (V * math.cos(alpha*math.pi/180)) * math.sin(beta*math.pi/180)
-            data_out.update(
-                {'Alfa': alpha, 'Beta': beta, 'Presion estatica': pest, 'Presion total': ptot, 'Velocidad': V,
-                 'Vx': Vx, 'Vy': Vy, 'Vz': Vz})
     return data_out
 

@@ -247,7 +247,6 @@ while True:
                 angle_interp = interpolate.CubicSpline(cpangle_sort, angle_sort)  # Interpolacion por "Cubic splines"
                 # ---------- Guardado de datos en variable de diccionario ----------
                 data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Angulo-Interp": angle_interp}
-
                 # Actualiza la imagen del numero de agujeros junto con sus referencias.
                 # Deshabilita o habilita los COMBO dependiendo del tipo de sonda elegida y se reemplaza el valor
                 # que tenia previamente por uno nulo [] cuando se deshabilita.
@@ -267,6 +266,7 @@ while True:
                 window['-MAXBETA-'].update('{}'.format('-'))
                 window['-TYPEPROBE-'].update('{}'.format(probe_type))
                 window['-MULTIZONE-'].update('{}'.format(sect_calc))
+
             elif probe_type == '3 agujeros':
                 # ---------- Carga de datos de la calibracion para 3 agujeros ----------
                 angle = [round(float(calib_data[i][0]), 1) for i in range(len(calib_data))]
@@ -575,6 +575,183 @@ while True:
                         window['-NUM6-'].update(value=conf_carg[6])
                         window['-NUM7-'].update(value=conf_carg[7])
 
+    # Graficar las funciones seleccionadas.
+    if event == '-GRAFICAR-' or event == '-GUARDGRAF-':
+        try:
+            # Carga del listado de funciones seleccionados
+            plot_list = values['-PLOT LIST-']
+            # Si no se selecciono ningun grafico da mensaje de error o empieza a graficar
+            if not plot_list:
+                error_popup('No se selecciono ningun grafico')
+            else:
+                # Carpeta de Graficos. Se crea dentro de la carpeta donde esta el archivo de calibracion
+                path_graph = os.path.dirname(values['-GRAFARCH-']) + "/Graficos/"
+                # Determina si se guarda o grafica la funcion
+                if event == '-GUARDGRAF-':
+                    # Creacion/verificacion de carpeta "Graficos".
+                    if not os.path.isdir(path_graph):
+                        try:
+                            os.mkdir(path_graph)
+                        except Exception as e:
+                            print(e)
+                            # Aviso la carpeta de salida no pudo crearse
+                            error_popup('No se pudo crear la carpeta "Graficos"')
+                            # Como no es posible generar la carpeta se grafica en consecuencia.
+                            save = False
+                    # Flag de guardado
+                    save = True
+                else:
+                    save = False
+                # Realizacion de graficos
+                if 'Angulo=F(Posicion X)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Angulo [º]',
+                                 'title': "Angulo - Posicion X", 'save_name': 'Angulo - Pos-X_.jpg'}
+                    angle = graph_data["Angulo [º]"]
+                    angle = [float(i) for i in angle]  # Conversion a float
+                    position = graph_data["Posicion X[mm]"]
+                    position = [float(i) for i in position]  # Conversion a float
+                    plot_2d(position,angle, conf_plot, save, path_graph)
+                    del (angle, position)  # Borrado de variables innecesarias
+                if 'Angulo=F(Posicion Y)' in plot_list :
+                    conf_plot = {'xlabel': 'Posicion [mm]', 'ylabel': 'Angulo [º]',
+                                 'title': "Angulo - Posicion Y", 'save_name': 'Angulo - Pos-Y_.jpg'}
+                    angle = graph_data["Angulo [º]"]
+                    angle = [float(i) for i in angle]  # Conversion a float
+                    position = graph_data["Posicion Y[mm]"]
+                    position = [float(i) for i in position]  # Conversion a float
+                    plot_2d(position,angle, conf_plot, save, path_graph)
+                    del (position, angle)  # Borrado de variables innecesarias
+                if 'Pestatica=F(Posicion X)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Presion Estatica [Pa]',
+                                 'title': "Presion Estatica - Posicion X",
+                                 'save_name': 'PEstatico - Pos-X_.jpg'}
+                    pestat = graph_data["Presion estatica [Pa]"]
+                    pestat = [float(i) for i in pestat]
+                    position = graph_data["Posicion X[mm]"]
+                    position = [float(i) for i in position]
+                    plot_2d(position, pestat, conf_plot, save, path_graph)
+                    del (pestat, position)
+                if 'Pestatica=F(Posicion Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion Y[mm]', 'ylabel': 'Presion Estatica [Pa]',
+                                 'title': "Presion Estatica - Posicion Y",
+                                 'save_name': 'PEstatico - Pos-Y.jpg'}
+                    pestat = graph_data["Presion estatica [Pa]"]
+                    pestat = [float(i) for i in pestat]
+                    position = graph_data["Posicion Y[mm]"]
+                    position = [float(i) for i in position]
+                    plot_2d(position, pestat, conf_plot, save, path_graph)
+                    del (pestat, position)
+                if 'Ptotal=F(Posicion X)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Presion Total [Pa]',
+                                 'title': "Presion Total - Posicion X",
+                                 'save_name': 'Ptotal - Pos-X_.jpg'}
+                    ptot = graph_data["Presion total [Pa]"]
+                    ptot = [float(i) for i in ptot]
+                    position = graph_data["Posicion X[mm]"]
+                    position = [float(i) for i in position]
+                    plot_2d(position, ptot, conf_plot, save, path_graph)
+                    del (ptot, position)
+                if 'Ptotal=F(Posicion Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion Y[mm]', 'ylabel': 'Presion Total [Pa]',
+                                 'title': "Presion Total - Posicion Y",
+                                 'save_name': 'Ptotal - Pos-Y.jpg'}
+                    ptot = graph_data["Presion total [Pa]"]
+                    ptot = [float(i) for i in ptot]
+                    position = graph_data["Posicion Y[mm]"]
+                    position = [float(i) for i in position]
+                    plot_2d(position, ptot, conf_plot, save, path_graph)
+                    del (ptot, position)
+                if 'Velocidad=F(Posicion X)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion', 'ylabel': 'Velocidad [m/s]',
+                                 'title': "Velocidad - Posicion X",
+                                 'save_name': 'Velocidad - Pos-X_.jpg'}
+                    vel = graph_data["Velocidad [m/seg]"]
+                    vel = [float(i) for i in vel]
+                    position = graph_data["Posicion X[mm]"]
+                    position = [float(i) for i in position]
+                    plot_2d(position, vel, conf_plot, save, path_graph)
+                    del (vel, position)
+                if 'Velocidad=F(Posicion Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion Y[mm]', 'ylabel': 'Velocidad [m/s]',
+                                 'title': "Velocidad - Posicion Y",
+                                 'save_name': 'Velocidad - Pos-Y.jpg'}
+                    vel = graph_data["Velocidad [m/seg]"]
+                    vel = [float(i) for i in vel]
+                    position = graph_data["Posicion Y[mm]"]
+                    position = [float(i) for i in position]
+                    plot_2d(position, vel, conf_plot, save, path_graph)
+                    del (vel, position)
+
+                if 'Alfa=F(X,Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Posicion Y[mm]',
+                                 'title': "Alfa=F(X,Y) [º]", 'save_name': 'Alfa - X-Y_.jpg'}
+                    positionx = graph_data["Posicion X[mm]"]
+                    positionx = [float(i) for i in positionx]
+                    positiony = graph_data["Posicion Y[mm]"]
+                    positiony = [float(i) for i in positiony]
+                    alpha = graph_data["Alfa [º]"]
+                    alpha = [float(i) for i in alpha]
+                    plot_3d(positionx, positiony, alpha, conf_plot, save, path_graph)
+                    del (positionx, positiony, alpha)
+                if 'Beta=F(X,Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Posicion Y[mm]',
+                                 'title': "Beta=F(X,Y) [º]", 'save_name': 'Beta - X-Y_.jpg'}
+                    positionx = graph_data["Posicion X[mm]"]
+                    positionx = [float(i) for i in positionx]
+                    positiony = graph_data["Posicion Y[mm]"]
+                    positiony = [float(i) for i in positiony]
+                    beta = graph_data["Beta [º]"]
+                    beta = [float(i) for i in beta]
+                    plot_3d(positionx, positiony, beta, conf_plot, save, path_graph)
+                    del (positionx, positiony, beta)
+                if 'Velocidad=F(X,Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Posicion Y[mm]',
+                                 'title': "Velocidad=F(X,Y) [m/s]", 'save_name': 'Velocidad - X-Y_.jpg'}
+                    positionx = graph_data["Posicion X[mm]"]
+                    positionx = [float(i) for i in positionx]
+                    positiony = graph_data["Posicion Y[mm]"]
+                    positiony = [float(i) for i in positiony]
+                    vel = graph_data["Velocidad [m/seg]"]
+                    vel = [float(i) for i in vel]
+                    plot_3d(positionx, positiony, vel, conf_plot, save, path_graph)
+                    del (positionx, positiony, vel)
+
+                if 'Pestatica=F(X,Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Posicion Y[mm]',
+                                 'title': "Presion Estatica=F(X,Y) [Pa]", 'save_name': 'Pres Estat - X-Y_.jpg'}
+                    positionx = graph_data["Posicion X[mm]"]
+                    positionx = [float(i) for i in positionx]
+                    positiony = graph_data["Posicion Y[mm]"]
+                    positiony = [float(i) for i in positiony]
+                    pest = graph_data["Presion estatica [Pa]"]
+                    pest = [float(i) for i in pest]
+                    plot_3d(positionx, positiony, pest, conf_plot, save, path_graph)
+                    del (positionx, positiony, pest)
+
+                if 'Ptotal=F(X,Y)' in plot_list:
+                    conf_plot = {'xlabel': 'Posicion X[mm]', 'ylabel': 'Posicion Y[mm]',
+                                 'title': "Presion Total=F(X,Y) [Pa]", 'save_name': 'Pres total - X-Y_.jpg'}
+                    positionx = graph_data["Posicion X[mm]"]
+                    positionx = [float(i) for i in positionx]
+                    positiony = graph_data["Posicion Y[mm]"]
+                    positiony = [float(i) for i in positiony]
+                    ptot = graph_data["Presion total [Pa]"]
+                    ptot = [float(i) for i in ptot]
+                    plot_3d(positionx, positiony, ptot, conf_plot, save, path_graph)
+                    del (positionx, positiony, ptot)
+
+                if 'Datos=f(X,Y) - VTK' in plot_list:
+                    if save:
+                        plot_vtk(graph_data, path_graph + "Datos-X-Y_.vtk")
+                    else:
+                        info_popup('Los archivos VTK solo pueden guardarse, seleccione guardar')
+                if event == '-GUARDGRAF-':
+                    info_popup('Los graficos fueron guardados en la carpeta "Resultados\Graficos"')
+        except Exception as e:
+            # Si no se puede graficar o guardar avisa
+            print(e)
+            error_popup('Uno de los graficos no pudo graficarse o grabarse')
+
     # Procesamiento de las presiones medidas, la incertidumbre de las presiones
     # y ... (calibracion de la sonda junto con sus incertidumbres)
     if event == '-PROCESS-':
@@ -761,7 +938,7 @@ while True:
             probe_type = raw_data[0][1]
             sect_calc = raw_data[1][1]
             # Se elininan los datos de las dos primeras filas
-            raw_data = raw_data[2:]
+            raw_data = raw_data[3:]
 
             # Extracion de los datos (ChatGPT)
             # Encabezado
@@ -789,19 +966,16 @@ while True:
             # Se realiza una conversion a float y se redondea los valores durante la carga de valores.
             # Angulos 1 cifra significativa. Coeficientes 4 cifras significativas
             if probe_type == '2 agujeros':
-                plot_list = ['CpAngulo=F(Angulo)']  # Graficos disponibles
+                plot_list = ['Angulo=F(Posicion X)', 'Angulo=F(Posicion Y)']  # Graficos disponibles
                 window['-PLOT LIST-'].update(values=plot_list)
             elif probe_type == '3 agujeros':
-                plot_list = ['CpAngulo=F(Angulo)', 'CpEstatico=F(Angulo)',
-                             'CpTotal=F(Angulo)']  # Graficos disponibles
+                plot_list = ['Angulo=F(Posicion X)', 'Angulo=F(Posicion Y)', 'Velocidad=F(Posicion X)',
+                             'Velocidad=F(Posicion Y)', 'Pestatica=F(Posicion X)', 'Pestatica=F(Posicion Y)',
+                             'Ptotal=F(Posicion X)', 'Ptotal=F(Posicion Y)']  # Graficos disponibles
                 window['-PLOT LIST-'].update(values=plot_list)
             elif probe_type == '5 agujeros' or probe_type == '7 agujeros':
-                plot_list = ['CpAlfa=F(Alfa,Beta)', 'CpBeta=F(Alfa,Beta)', 'CpEstatico=F(Alfa,Beta)',
-                             'CpTotal=F(Alfa,Beta)', 'Alfa=F(CpAlfa,CpBeta)', 'Beta=F(CpAlfa,CpBeta)',
-                             "Datos=f(angulo) - VTK", "Datos=f(Cp) - VTK"]
-                # Se agrega la funcion de Analisis Sectorizado si la calibracion tiene este tipo de analisis.
-                if sect_calc == 'Utilizado':
-                    plot_list += ['Analisis Sectorial']
+                plot_list = ['Alfa=F(X,Y)', 'Beta=F(X,Y)', 'Velocidad=F(X,Y)' ,'Pestatica=F(X,Y)', 'Ptotal=F(X,Y)',
+                             'Datos=f(X,Y) - VTK']
                 window['-PLOT LIST-'].update(values=plot_list)
             else:
                 # No deberia ocurrir nunca pero se lo agrega por seguridad.
@@ -811,4 +985,3 @@ while True:
     # Salida del programa
     if event == "Salir" or event == sg.WIN_CLOSED:
         break
-

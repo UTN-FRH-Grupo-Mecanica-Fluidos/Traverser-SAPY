@@ -164,7 +164,7 @@ def data_process(data_csv, vref, nivconf, interpolat, values):
                      'hole 2': data_out["Promedio-{}".format(relat_hole_tap[1])]}
         data_out.update(hole_data)  # Agregado de valores de presion de cada agujero
         # --------- Calculo de coeficientes ---------
-        q = 7.35  # DEBE INGRESARSE MANUALMENTE. A IMPLEMENTAR
+        q = values['-DIN_PRESSURE-']  # Presion dinamica. Ingresada por usuario
         cpangle = (hole_data['hole 2'] - hole_data['hole 1']) / q
         # --------- Interpolacion de parametros de Flujo ---------
         try:

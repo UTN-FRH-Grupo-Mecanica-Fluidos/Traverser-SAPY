@@ -181,10 +181,10 @@ while True:
 
     # Se calcula la densidad
     if event == "-ACCEPT_DENSITY-":
-        # Verificar si los valores ingresados son numericos.
+        # Verificar si los valores ingresados son numericos y dentro de un rango.
         try:
             pressure = float(values["-ATM_PRESSURE-"])
-            if 90000 <= pressure <= 105000:
+            if 0 <= pressure <= 1000000:
                 temperature = float(values["-TEMP-"])
                 relative_humidity = float(values["-REL_HUMIDITY-"])
                 if 0 <= relative_humidity <= 100:
@@ -243,7 +243,7 @@ while True:
                 cpangle = [round(float(calib_data[i][1]), 4) for i in range(len(calib_data))]
                 # ---------- Carga de funciones de interpolacion ----------
                 sorted_lists = sorted(zip(cpangle, angle), key=lambda x: x[0])  # Acomodo la lista en forma incremental para el interpolador
-                angle_sort, cpangle_sort = zip(*sorted_lists)
+                cpangle_sort, angle_sort = zip(*sorted_lists)
                 angle_interp = interpolate.CubicSpline(cpangle_sort, angle_sort)  # Interpolacion por "Cubic splines"
                 # ---------- Guardado de datos en variable de diccionario ----------
                 data_calibr = {'Angulo': angle, "Cpangulo": cpangle, "Angulo-Interp": angle_interp}
@@ -807,10 +807,32 @@ while True:
         #  Verificacion de valor numerico en la densidad
         if can_process:
             try:
-                float(values["-DENSITY_VALUE-"])
+                # Se advierte si la densidad se va del rnago entre 0.01 y 10 Kg/m3
+                test_density = float(values["-DENSITY_VALUE-"])
+                if test_density<0.01 or test_density > 10:
+                    error_popup('El valor de densidad es incorrecto o excesivo')
+                    can_process = False
             except Exception as e:
                 print(e)
                 error_popup('El valor de densidad es incorrecto')
+                can_process = False
+
+        # En caso de tener una sonda de 2 agujeros se debe definir la presion dinamica
+        if can_process and conf_carg[0] == '2 agujeros':
+            din_pressure = sg.popup_get_text('Ingresar Presion Dinamica [Pa]', title="Ingresar valor")
+            # Verificar si los valores ingresados son numericos y dentro de un rango alejado del cero.
+            try:
+                din_pressure = float(din_pressure)
+                if din_pressure<0.5 or din_pressure<-0.5:
+                    error_popup('El valor de la presion es muy bajo')
+                    can_process = False
+                else:
+                    # Swe guarda el valor de la presion dentro de la variable "values" para luego ser tomada
+                    # por las funcion de procesamiento
+                    values['-DIN_PRESSURE-'] = din_pressure
+            except Exception as e:
+                print(e)
+                error_popup('La presion ingresada es incorrecta')
                 can_process = False
 
         # Calculo de los voltajes de referencia. Ante falla da aviso.

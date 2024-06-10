@@ -818,7 +818,7 @@ while True:
                 can_process = False
 
         # En caso de tener una sonda de 2 agujeros se debe definir la presion dinamica
-        if can_process and conf_carg[0] == '2 agujeros':
+        if can_process and window['-TYPEPROBE-'].get() == '2 agujeros':
             din_pressure = sg.popup_get_text('Ingresar Presion Dinamica [Pa]', title="Ingresar valor")
             # Verificar si los valores ingresados son numericos y dentro de un rango alejado del cero.
             try:
